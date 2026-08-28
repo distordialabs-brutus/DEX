@@ -5,8 +5,8 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 ## 1. Code Quality & Maintainability
 
 ### a. Add Linting and Formatting
-- **Status**: Implemented
-- **Current**: ESLint configuration added (.eslintrc.json) and lint script in package.json; Prettier already present.
+- **Status**: Partial / blocked (reviewed 2026-08-28)
+- **Current**: ESLint configuration and a lint script exist, but `npm run lint` fails with 34 errors and 118 warnings. It is not yet an enforceable green quality gate.
 - **Benefit**: Catch bugs early, enforce consistent code style
 
 ### b. Add TypeScript Support
@@ -23,9 +23,9 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 ## 2. Testing & Reliability
 
 ### a. Add Test Coverage
-- **Status**: Implemented
-- **Current**: Test directory contains unit tests for DataLoadingState, marketStatus, tradeValidation, virtualization, VirtualizedTable, and apiCache.
-- **Recommendation**: Continue adding unit tests for critical components like TradeForm.js, OrderBookComp.js, and aim for higher coverage.
+- **Status**: Not implemented as a runnable gate (reviewed 2026-08-28)
+- **Current**: `package.json` has no `test` script. One `__tests__/apiCache.test.js` file exists, but the documented broader suite and required runner dependencies are absent.
+- **Recommendation**: Add and run a supported test framework, then cover critical components and flows.
 - **Benefit**: Prevent regressions, enable confident refactoring
 
 ### b. Add Integration Tests
@@ -41,19 +41,21 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Benefit**: Reduces unnecessary renders, improves performance
 
 ### b. Implement Virtual Scrolling
-- **Status**: Implemented
-- **Current**: VirtualizedTable component created and used for large lists (order books, trade histories).
+- **Status**: Not implemented in the active repository
+- **Current**: `VirtualizedTable` is absent from this branch. A previous recovery checkout contained unintegrated WIP, but that checkout is no longer present under `/home/brutus/github`.
+- **Recommendation**: Reimplement or recover it as a separate change only after row-height/layout behavior and browser integration are tested.
 - **Benefit**: Improves performance when rendering large datasets
 
 ### c. Optimize API Calls
-- **Status**: Implemented
-- **Current**: apiCallWithRetry utility added with exponential backoff retry logic; fetchExecuted updated to use it.
+- **Status**: Partially implemented
+- **Current**: `apiCache` and `apiCallWithRetry` utilities exist, but retry adoption is limited to `fetchExecuted`; caching/retry behavior is not standardized across API actions.
 - **Benefit**: Reduces unnecessary network requests, improves load times, and increases reliability
 
 ## 4. Security Enhancements
 
 ### a. Dependency Security
 - **Status**: Not implemented (no regular audit setup)
+- **Current**: `npm audit --json` reports 36 vulnerable packages (2 critical, 14 high, 16 moderate, 4 low) as of 2026-08-28; there is no Dependabot configuration or CI audit gate.
 - **Recommendation**: Regularly audit dependencies with npm audit or yarn audit; consider using tools like Dependabot or Snyk.
 - **Benefit**: Identifies and fixes vulnerable dependencies
 
@@ -70,13 +72,14 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 ## 5. User Experience Improvements
 
 ### a. Loading States & Skeletons
-- **Status**: Partially implemented (we added DataLoadingState component and loading states in some places)
+- **Status**: Not implemented as documented
+- **Current**: No `DataLoadingState` component exists in the active repository; any ad-hoc loading state does not satisfy the previously claimed reusable implementation.
 - **Recommendation**: Add better loading indicators for data fetching; consider skeleton screens for charts and order books.
 - **Benefit**: Improves perceived performance and user experience during waits
 
 ### b. Error Boundaries
-- **Status**: Implemented
-- **Current**: ErrorBoundary component created and wrapped around the Main app (and thus all tabs).
+- **Status**: Partial / unsafe to commit as currently represented in Git
+- **Current**: The working tree wraps `Main` in an ErrorBoundary, but its old tracked path is deleted and the replacement path is untracked. The fallback also renders raw error messages and React component stacks.
 - **Benefit**: Improves app resilience by catching runtime errors and showing a fallback UI
 
 ### c. Accessibility (a11y)
@@ -102,7 +105,8 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Benefit**: More efficient state updates, less boilerplate
 
 ### c. Error Handling
-- **Status**: Implemented (standardized error handling patterns via apiCallWithRetry and ErrorBoundary)
+- **Status**: Partially implemented; not standardized
+- **Current**: `apiCallWithRetry` is used by `fetchExecuted`, while the ErrorBoundary relocation remains untracked and its production fallback exposes diagnostics.
 - **Recommendation**: Continue to standardize error handling patterns; add retry mechanisms for failed API calls; implement circuit breaker pattern for external service failures.
 - **Benefit**: More robust error recovery
 
@@ -126,7 +130,7 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 ## 8. DevOps & CI/CD
 
 ### a. Continuous Integration
-- **Status**: Not implemented (we have jest.config.js and test script, but no GitHub Actions workflow)
+- **Status**: Not implemented (`jest.config.js` exists, but there is no `test` script and no GitHub Actions workflow)
 - **Recommendation**: Add GitHub Actions workflow for: running tests on PRs, building the module, security scanning, linting checks.
 - **Benefit**: Automates testing and quality checks
 
@@ -143,8 +147,8 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Benefit**: Cleaner, more maintainable component
 
 ### b. OrderBookComp.js
-- **Status**: Partially implemented (good use of memoization patterns; virtualization added via VirtualizedTable; aggregateOrdersByPrice function could be memoized)
-- **Recommendation**: Consider adding virtualization for large order books (done); memoize the aggregateOrdersByPrice function.
+- **Status**: Partially implemented (some memoization patterns exist, but `VirtualizedTable` is absent from the active repository)
+- **Recommendation**: Consider adding and browser-testing virtualization for large order books; memoize `aggregateOrdersByPrice` where profiling supports it.
 - **Benefit**: Improves performance with large datasets
 
 ### c. DepthChart.js
@@ -169,25 +173,26 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Recommendation**: Optimize images and icons; consider using SVGs for icons where possible; implement lazy loading for non-critical assets.
 - **Benefit**: Reduces load time and bandwidth usage
 
-## Implementation Priority (updated based on what's done)
+## Implementation Priority (reviewed 2026-08-28)
 
-**Completed High Priority**:
-1. Add ESLint configuration
-2. Add basic unit tests for critical components
-3. Implement virtual scrolling (for large lists)
-4. Add loading states (DataLoadingState component)
-5. Add documentation (ARCHITECTURE.md, CONTRIBUTING.md)
-6. Improve error handling (ErrorBoundary, apiCallWithRetry, standardized error handling in fetchExecuted)
+**Completed**:
+1. Architecture and contributing documentation exist.
+2. `apiCallWithRetry` and an ErrorBoundary implementation exist in the working tree, but neither constitutes a complete standardized error-handling gate.
 
-**Remaining High Priority**:
-- Improve error handling and loading states (loading states started, but could be enhanced with skeletons)
-- Add documentation (already done)
+**Blocked / incomplete high priority**:
+1. Make `npm run lint` green or establish a documented ratcheted baseline.
+2. Add a runnable automated test gate; the broader suite previously claimed here is absent.
+3. Reimplement or recover and verify virtual scrolling if still desired; it is absent from the active repository.
+4. Implement and verify loading-state components rather than documenting absent files.
+5. Remove backup artifacts and complete the ErrorBoundary rename safely.
+6. Add CI for build, lint, tests, and dependency review.
+7. Triage the 36 currently reported dependency vulnerabilities, beginning with the 2 critical and 14 high findings.
 
 **Medium Priority**:
 1. Gradual TypeScript migration
 2. Performance optimizations (memoization, optimizing re-renders)
 3. Security audits and dependency updates
-4. CI/CD pipeline setup (GitHub Actions)
+4. Bundle analysis and code splitting
 
 **Low Priority** (Nice to have):
 1. Advanced charting features
