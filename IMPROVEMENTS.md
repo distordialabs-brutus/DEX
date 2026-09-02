@@ -55,7 +55,7 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 
 ### a. Dependency Security
 - **Status**: Not implemented (no regular audit setup)
-- **Current**: `npm audit --json` reports 36 vulnerable packages (2 critical, 14 high, 16 moderate, 4 low) as of 2026-08-28; there is no Dependabot configuration or CI audit gate.
+- **Current**: `npm audit --audit-level=low` reports 37 vulnerable packages (2 critical, 15 high, 16 moderate, 4 low) as of 2026-09-02; there is no Dependabot configuration or CI audit gate. The increase since the prior review is advisory-database drift, not a repository code change.
 - **Recommendation**: Regularly audit dependencies with npm audit or yarn audit; consider using tools like Dependabot or Snyk.
 - **Benefit**: Identifies and fixes vulnerable dependencies
 

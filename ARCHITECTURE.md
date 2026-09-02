@@ -27,7 +27,7 @@ The DEX module is a React/Redux application that integrates with the Nexus Walle
 - App-shell-only components may live under `src/App/components/`, but this boundary must be explicit; the current ErrorBoundary relocation is uncommitted and incomplete in Git.
 - `VirtualizedTable` is **not implemented in the active repository**. A previous recovery checkout contained unintegrated WIP, but that checkout is no longer present under `/home/brutus/github` and is not an implementation source.
 
-> Current implementation status and verification results: [`DEVELOPMENT_REVIEW_2026-08-28.md`](DEVELOPMENT_REVIEW_2026-08-28.md).
+> Current implementation status and verification results: [`DEVELOPMENT_REVIEW_2026-09-02.md`](DEVELOPMENT_REVIEW_2026-09-02.md).
 
 ## Integration with Nexus Wallet
 - The module reads wallet data from the `nexus` slice (provided by the Nexus Wallet Redux module).
