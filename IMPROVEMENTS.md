@@ -2,6 +2,8 @@
 
 Based on code review of the DEX module, here are suggested improvements to enhance security, performance, maintainability, and user experience.
 
+> **Current independent review:** [`DEVELOPMENT_REVIEW_2026-09-03.md`](DEVELOPMENT_REVIEW_2026-09-03.md). No implementation status advanced: the branch has no post-cutoff commits, lint remains at 34 errors/118 warnings, the test command remains absent, and the ErrorBoundary relocation remains unsafe to stage broadly.
+
 ## 1. Code Quality & Maintainability
 
 ### a. Add Linting and Formatting
