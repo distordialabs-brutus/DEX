@@ -24,7 +24,11 @@
   },
   "scripts": {
     "build": "cross-env NODE_ENV=production webpack --config webpack.config.babel.js",
-    "dev": "cross-env NODE_ENV=development webpack serve --config webpack-dev.config.babel.js"
+    "dev": "cross-env NODE_ENV=development webpack serve --config webpack-dev.config.babel.js",
+    "lint": "eslint src --ext .js,.jsx",
+    "test": "node --test test/swap/*.test.cjs",
+    "test:swap": "node --test test/swap/*.test.cjs",
+    "lint:swap": "eslint src/swap src/App/stablecoinSwap.js --max-warnings 0"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.13",

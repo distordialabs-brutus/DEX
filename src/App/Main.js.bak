@@ -179,12 +179,14 @@ export default function Main() {
             >
               NFT Art
             </HorizontalTab>
-            <HorizontalTab
-              active={activeTab === 'StablecoinSwap'}
-              onClick={() => handleSwitchTab('StablecoinSwap')}
-            >
-              Cross-chain swaps
-            </HorizontalTab>
+            {/* Stablecoin Swap tab hidden until ready for release
+          <HorizontalTab
+            active={activeTab === 'StablecoinSwap'}
+            onClick={() => handleSwitchTab('StablecoinSwap')}
+          >
+            Stablecoin Swap
+          </HorizontalTab>
+          */}
           </HorizontalTab.TabBar>
         </div>
 
@@ -195,7 +197,9 @@ export default function Main() {
         <div>{activeTab === 'Markets' && <Markets />}</div>
         <div>{activeTab === 'Portfolio' && <Portfolio />}</div>
         <div>{activeTab === 'NFTArt' && <NFTMarketplace />}</div>
-        <div>{activeTab === 'StablecoinSwap' && <StablecoinSwap />}</div>
+        {/* Stablecoin Swap component hidden until ready for release
+      <div>{activeTab === 'StablecoinSwap' && <StablecoinSwap />}</div>
+      */}
       </Panel>
     </ErrorBoundary>
   );

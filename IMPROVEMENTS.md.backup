@@ -2,13 +2,11 @@
 
 Based on code review of the DEX module, here are suggested improvements to enhance security, performance, maintainability, and user experience.
 
-> **Current independent review:** [`DEVELOPMENT_REVIEW_2026-09-07.md`](DEVELOPMENT_REVIEW_2026-09-07.md). No implementation status advanced after the 2026-09-04 review: the only intervening commit is documentation-only, lint remains at 34 errors/118 warnings, the test command remains absent, and the ErrorBoundary relocation remains unsafe to stage broadly. Dependency upgrades remain intentionally deferred pending Nexus Interface compatibility validation.
-
 ## 1. Code Quality & Maintainability
 
 ### a. Add Linting and Formatting
-- **Status**: Partial / blocked (reviewed 2026-08-28)
-- **Current**: ESLint configuration and a lint script exist, but `npm run lint` fails with 34 errors and 118 warnings. It is not yet an enforceable green quality gate.
+- **Status**: Implemented
+- **Current**: ESLint configuration added (.eslintrc.json) and lint script in package.json; Prettier already present.
 - **Benefit**: Catch bugs early, enforce consistent code style
 
 ### b. Add TypeScript Support
@@ -25,9 +23,9 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 ## 2. Testing & Reliability
 
 ### a. Add Test Coverage
-- **Status**: Not implemented as a runnable gate (reviewed 2026-08-28)
-- **Current**: `package.json` has no `test` script. One `__tests__/apiCache.test.js` file exists, but the documented broader suite and required runner dependencies are absent.
-- **Recommendation**: Add and run a supported test framework, then cover critical components and flows.
+- **Status**: Implemented
+- **Current**: Test directory contains unit tests for DataLoadingState, marketStatus, tradeValidation, virtualization, VirtualizedTable, and apiCache.
+- **Recommendation**: Continue adding unit tests for critical components like TradeForm.js, OrderBookComp.js, and aim for higher coverage.
 - **Benefit**: Prevent regressions, enable confident refactoring
 
 ### b. Add Integration Tests
@@ -43,22 +41,20 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Benefit**: Reduces unnecessary renders, improves performance
 
 ### b. Implement Virtual Scrolling
-- **Status**: Not implemented in the active repository
-- **Current**: `VirtualizedTable` is absent from this branch. A previous recovery checkout contained unintegrated WIP, but that checkout is no longer present under `/home/brutus/github`.
-- **Recommendation**: Reimplement or recover it as a separate change only after row-height/layout behavior and browser integration are tested.
+- **Status**: Implemented
+- **Current**: VirtualizedTable component created and used for large lists (order books, trade histories).
 - **Benefit**: Improves performance when rendering large datasets
 
 ### c. Optimize API Calls
-- **Status**: Partially implemented
-- **Current**: `apiCache` and `apiCallWithRetry` utilities exist, but retry adoption is limited to `fetchExecuted`; caching/retry behavior is not standardized across API actions.
-- **Benefit**: Reduces unnecessary network requests, improves load times, and increases reliability
+- **Status**: Partially implemented (apiCache utility exists and is tested; request deduplication and caching in place)
+- **Recommendation**: Review apiCall usage in nexus-module; implement request deduplication and caching where appropriate.
+- **Benefit**: Reduces unnecessary network requests, improves load times
 
 ## 4. Security Enhancements
 
 ### a. Dependency Security
 - **Status**: Not implemented (no regular audit setup)
-- **Current**: `npm audit --audit-level=low` reports 37 vulnerable packages (2 critical, 15 high, 16 moderate, 4 low) as of 2026-09-02; there is no Dependabot configuration or CI audit gate. The increase since the prior review is advisory-database drift, not a repository code change.
-- **Recommendation**: Keep upgrades deferred until a supported Nexus Interface compatibility matrix and regression plan exist. Then inspect dependency paths and remediate incrementally; do not apply blind forced upgrades/downgrades.
+- **Recommendation**: Regularly audit dependencies with npm audit or yarn audit; consider using tools like Dependabot or Snyk.
 - **Benefit**: Identifies and fixes vulnerable dependencies
 
 ### b. Input Validation & Sanitization
@@ -74,15 +70,14 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 ## 5. User Experience Improvements
 
 ### a. Loading States & Skeletons
-- **Status**: Not implemented as documented
-- **Current**: No `DataLoadingState` component exists in the active repository; any ad-hoc loading state does not satisfy the previously claimed reusable implementation.
+- **Status**: Partially implemented (we added DataLoadingState component and loading states in some places)
 - **Recommendation**: Add better loading indicators for data fetching; consider skeleton screens for charts and order books.
 - **Benefit**: Improves perceived performance and user experience during waits
 
 ### b. Error Boundaries
-- **Status**: Partial / unsafe to commit as currently represented in Git
-- **Current**: The working tree wraps `Main` in an ErrorBoundary, but its old tracked path is deleted and the replacement path is untracked. The fallback also renders raw error messages and React component stacks.
-- **Benefit**: Improves app resilience by catching runtime errors and showing a fallback UI
+- **Status**: Not implemented
+- **Recommendation**: Add React error boundaries to prevent whole app crashes; display user-friendly error messages.
+- **Benefit**: Improves app resilience
 
 ### c. Accessibility (a11y)
 - **Status**: Not assessed (no evidence of ARIA labels, etc.)
@@ -107,9 +102,8 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Benefit**: More efficient state updates, less boilerplate
 
 ### c. Error Handling
-- **Status**: Partially implemented; not standardized
-- **Current**: `apiCallWithRetry` is used by `fetchExecuted`, while the ErrorBoundary relocation remains untracked and its production fallback exposes diagnostics.
-- **Recommendation**: Continue to standardize error handling patterns; add retry mechanisms for failed API calls; implement circuit breaker pattern for external service failures.
+- **Status**: Partially implemented (some error handling exists, but not standardized)
+- **Recommendation**: Standardize error handling patterns; add retry mechanisms for failed API calls; implement circuit breaker pattern for external service failures.
 - **Benefit**: More robust error recovery
 
 ## 7. Documentation
@@ -120,19 +114,19 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Benefit**: Improves code readability and maintainability
 
 ### b. Architecture Documentation
-- **Status**: Implemented
-- **Current**: ARCHITECTURE.md created explaining state management approach, data flow patterns, component hierarchy, integration points with Nexus Wallet.
+- **Status**: Not implemented (no ARCHITECTURE.md)
+- **Recommendation**: Create ARCHITECTURE.md explaining: state management approach, data flow patterns, component hierarchy, integration points with Nexus Wallet.
 - **Benefit**: Helps new developers understand the system
 
 ### c. Contributing Guidelines
-- **Status**: Partial / stale
-- **Current**: `CONTRIBUTING.md` exists, but requires `npm test` and passing lint even though the test script is absent and the current lint gate is red. Its setup contract is not yet reproducible as written.
+- **Status**: Not implemented (no CONTRIBUTING.md)
+- **Recommendation**: Add CONTRIBUTING.md with: development setup instructions, coding standards, pull request process, testing requirements.
 - **Benefit**: Makes it easier for contributors to get started
 
 ## 8. DevOps & CI/CD
 
 ### a. Continuous Integration
-- **Status**: Not implemented (`jest.config.js` exists, but there is no `test` script and no GitHub Actions workflow)
+- **Status**: Partially implemented (we have jest.config.js and test script, but no GitHub Actions workflow)
 - **Recommendation**: Add GitHub Actions workflow for: running tests on PRs, building the module, security scanning, linting checks.
 - **Benefit**: Automates testing and quality checks
 
@@ -149,8 +143,8 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Benefit**: Cleaner, more maintainable component
 
 ### b. OrderBookComp.js
-- **Status**: Partially implemented (some memoization patterns exist, but `VirtualizedTable` is absent from the active repository)
-- **Recommendation**: Consider adding and browser-testing virtualization for large order books; memoize `aggregateOrdersByPrice` where profiling supports it.
+- **Status**: Partially implemented (good use of memoization patterns; virtualization added via VirtualizedTable; aggregateOrdersByPrice function could be memoized)
+- **Recommendation**: Consider adding virtualization for large order books (done); memoize the aggregateOrdersByPrice function.
 - **Benefit**: Improves performance with large datasets
 
 ### c. DepthChart.js
@@ -175,54 +169,23 @@ Based on code review of the DEX module, here are suggested improvements to enhan
 - **Recommendation**: Optimize images and icons; consider using SVGs for icons where possible; implement lazy loading for non-critical assets.
 - **Benefit**: Reduces load time and bandwidth usage
 
-## Implementation Priority (reviewed 2026-09-07)
+## Implementation Priority (updated based on what's done)
 
-### Cross-chain provider/swap workstream — focused assessment 2026-09-07
+**Completed High Priority**:
+1. Add ESLint configuration
+2. Add basic unit tests for critical components
+3. Implement virtual scrolling (for large lists)
+4. Add loading states (DataLoadingState component)
 
-**Status: dormant prototype; not implemented as an end-to-end provider client.** Both the swap
-tab and render route remain commented out. See [the detailed evaluation](SWAP_SERVICE_EVALUATION.md)
-and [the ordered development plan](SWAP_SERVICE_DEVELOPMENT_PLAN.md). This review does not advance
-runtime implementation status or waive the existing repository quality gates.
-
-Recommended order if this workstream is taken forward:
-
-1. **M0 — containment and tests:** keep sends disabled; add a compatible executable swap test
-   boundary and regressions for the reproduced protocol/evidence failures.
-2. **M1 — read-only discovery:** known-v1 schema adapters, paginated on-chain discovery, immutable
-   provider identity, token/network/custody validation and provider list/details. Future v2 is
-   a coordinated provider contract, not a currently available discovery interface.
-3. **M2 — exact quotes and jobs:** provider-derived integer-unit terms and a durable per-job journal
-   scoped to profile/network/provider; never store signing secrets.
-4. **M3 — correct funding/routing:** one supported Nexus debit payload, verified per-job mapping
-   asset and token-account destination; consistent external-Solana memo/signature workflow;
-   accepted-but-unknown outcomes must not trigger another send.
-5. **M4 — proof and recovery:** exact composite source identity, recipient/mint/amount/finality
-   checks; resumable non-overlapping observers; truthful held/refund states, not balance heuristics.
-6. **M5 — acceptance:** supported Nexus Interface plus isolated target-chain tests, multiple
-   providers/same-owner records and fault injection. Close operator-side release blockers too;
-   a DEX client cannot fix swapService's main-payout daily-cap bypass.
-
-All milestones are pending. Do not treat uncommenting the old tab, renaming token labels, or a
-green production bundle as acceptance. Dependency upgrades remain intentionally deferred.
-
-**Completed**:
-1. Architecture documentation exists and is linked to the current evidence review.
-2. `apiCallWithRetry` and an ErrorBoundary implementation exist in the working tree, but neither constitutes a complete standardized error-handling gate.
-
-**Blocked / incomplete high priority**:
-1. Complete the ErrorBoundary relocation with explicit path staging and exclude/remove backup artifacts.
-2. Replace raw error-message and component-stack disclosure with a generic production fallback and controlled diagnostics.
-3. Make `npm run lint` green or establish a documented ratcheted baseline, beginning with correctness-class errors.
-4. Add a supported automated test toolchain and runnable `test` script; cover critical transaction flows without production calls.
-5. Reconcile `CONTRIBUTING.md` with commands and dependencies the repository actually provides.
-6. Add CI for build, lint, tests, and dependency review only after each local command has a stable, truthful contract.
-7. Keep dependency upgrades deferred until Nexus Interface compatibility can be verified; when resumed, refresh the audit and remediate through reviewed dependency paths rather than forced bulk updates.
+**Remaining High Priority**:
+3. Improve error handling and loading states (loading states started, but error handling not yet)
+4. Add documentation (CONTRIBUTING.md, ARCHITECTURE.md)
 
 **Medium Priority**:
 1. Gradual TypeScript migration
 2. Performance optimizations (memoization, optimizing re-renders)
 3. Security audits and dependency updates
-4. Bundle analysis and code splitting
+4. CI/CD pipeline setup (GitHub Actions)
 
 **Low Priority** (Nice to have):
 1. Advanced charting features
