@@ -182,7 +182,7 @@ function exactCreditTerms(contract, job, expectedUnits, debitContractId) {
     && wireReference(contract.reference) === job.reference
     && String(contract.for || '').toUpperCase() === 'DEBIT'
     && contract.txid === job.debitTxid
-    && contract.contract === debitContractId;
+    && sameContractId(contract.contract, debitContractId);
 }
 
 function createNexusClient({ apiCall, secureApiCall } = {}) {
@@ -275,7 +275,7 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
       return { txid: response.txid };
     },
 
-    async inspectSource(job) {
+    async inspectSource(job, candidate = null) {
       if (!job || job.direction !== 'nexus-to-solana') {
         return { resolved: false, reason: 'wrong_direction' };
       }
@@ -302,6 +302,40 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
           return { resolved: false, reason: `debit_${debit.reason}` };
         }
 
+        const decimals = requireDecimals(job.provider.nexusDecimals);
+        const expectedUnits = amountUnits(job.quote.inputAmount, decimals);
+        if (candidate !== null && candidate !== undefined) {
+          const candidateTxid = candidate && candidate.txid;
+          const candidateContract = candidate && candidate.sourceContract;
+          const contractId = canonicalContractId(candidateContract);
+          if (typeof candidateTxid !== 'string' || !candidateTxid || contractId === null) {
+            return {resolved:false, reason:'invalid_manual_source_identity'};
+          }
+          const endpoint = 'ledger/get/transaction';
+          const transaction = unwrap(await apiCall(endpoint, {txid:candidateTxid}), endpoint);
+          if (!transaction || typeof transaction !== 'object' || Array.isArray(transaction)
+              || transaction.txid !== candidateTxid || !Array.isArray(transaction.contracts)) {
+            return {resolved:false, reason:'source_transaction_identity_mismatch'};
+          }
+          if (!Number.isInteger(transaction.confirmations) || transaction.confirmations < requiredFinality(job)) {
+            return {resolved:false, reason:'source_credit_insufficient_finality'};
+          }
+          const matches = transaction.contracts.filter(contract => contract && typeof contract === 'object'
+            && !Array.isArray(contract) && String(contract.OP || '').toUpperCase() === 'CREDIT'
+            && sameContractId(contract.id, contractId)
+            && exactCreditTerms(contract, job, expectedUnits, debit.contractId));
+          if (matches.length !== 1) return {resolved:false, reason:'no_exact_manual_source_credit'};
+          const contract = matches[0];
+          const evidence = {
+            txid:candidateTxid, contractId:Number(contractId), operation:'CREDIT',
+            linkedDebitTxid:contract.txid, linkedDebitContract:Number(canonicalContractId(contract.contract)),
+            from:job.nexusAccount, to:job.provider.nexusTreasury, token:job.provider.nexusToken,
+            amount:String(contract.amount), reference:wireReference(contract.reference), confirmations:transaction.confirmations,
+          };
+          return {resolved:true, debitTxid:job.debitTxid, sourceTxid:candidateTxid,
+            sourceContract:Number(contractId), contractId:Number(contractId), evidence};
+        }
+
         const response = await apiCall(TREASURY_HISTORY_ENDPOINT, {
           address: job.provider.nexusTreasury,
           sort: 'timestamp', order: 'desc', limit: 100, offset: 0,
@@ -310,8 +344,6 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
         if (!Array.isArray(transactions)) {
           return { resolved: false, reason: 'invalid_treasury_history' };
         }
-        const decimals = requireDecimals(job.provider.nexusDecimals);
-        const expectedUnits = amountUnits(job.quote.inputAmount, decimals);
         const matches = [];
         const treasuryCreditsByTxid = new Map();
         let linkageUnavailable = false;
@@ -384,7 +416,39 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
       }
     },
 
-    async publishMapping(job) {
+    async verifyMapping(address, txid, job) {
+      try {
+        requireString(address, 'mapping address');
+        requireString(txid, 'mapping create transaction id');
+        if (!job || job.direction !== 'nexus-to-solana') return {verified:false, reason:'wrong_direction'};
+        const assetEndpoint = 'register/get/assets:asset';
+        let asset = unwrap(await apiCall(assetEndpoint, {address}), assetEndpoint);
+        if (Array.isArray(asset) && asset.length === 1) [asset] = asset;
+        if (!asset || typeof asset !== 'object' || Array.isArray(asset) || asset.address !== address
+            || asset.owner !== job.scope?.genesis || asset.txid_toService !== job.sourceTxid
+            || asset.receival_account !== job.solanaAccount) {
+          return {verified:false, reason:'mapping_asset_identity_mismatch'};
+        }
+        const endpoint = 'ledger/get/transaction';
+        const transaction = unwrap(await apiCall(endpoint, {txid}), endpoint);
+        if (!transaction || typeof transaction !== 'object' || Array.isArray(transaction)
+            || transaction.txid !== txid || !Array.isArray(transaction.contracts)) {
+          return {verified:false, reason:'mapping_create_identity_mismatch'};
+        }
+        if (!Number.isInteger(transaction.confirmations) || transaction.confirmations < requiredFinality(job)) {
+          return {verified:false, reason:'mapping_create_insufficient_finality'};
+        }
+        const creates = transaction.contracts.filter(contract => contract && typeof contract === 'object'
+          && !Array.isArray(contract) && String(contract.OP || '').toUpperCase() === 'CREATE'
+          && contractAddress(contract.address) === address);
+        if (creates.length !== 1) return {verified:false, reason:'no_exact_mapping_create'};
+        return {verified:true,address,txid,evidence:{operation:'CREATE',address,confirmations:transaction.confirmations}};
+      } catch (error) {
+        return {verified:false,reason:'mapping_verification_unavailable',error:error.message};
+      }
+    },
+
+    async publishMapping(job, options = {}) {
       if (!job || job.direction !== 'nexus-to-solana') {
         return { resolved: false, reason: 'wrong_direction' };
       }
@@ -431,6 +495,9 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
         address = mapping.address;
         mappingTxid = job.mappingTxid;
       } else {
+        if (job.mappingStartedAt && options.allowCreate !== true) {
+          return {resolved:false, reason:'mapping_create_outcome_unknown'};
+        }
         let created;
         try {
           created = unwrap(await secureApiCall('assets/create/asset', {
@@ -468,7 +535,11 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
           resolved: false, reason: 'mapping_readback_mismatch', address, txid: mappingTxid,
         };
       }
-      return { address, txid: mappingTxid };
+      const verified = await client.verifyMapping(address, mappingTxid, job);
+      if (!verified.verified) {
+        return {resolved:false, reason:verified.reason, address, txid:mappingTxid};
+      }
+      return { resolved:true, address, txid: mappingTxid, evidence:verified.evidence };
     },
 
     async verifyDebit(txid, job) {
@@ -565,16 +636,21 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
         return { verified: false, reason: 'receipt_debit_contract_mismatch' };
       }
 
-      let history;
+      const history = [];
+      let claimHistoryComplete = false;
       try {
-        history = unwrap(await apiCall(TREASURY_HISTORY_ENDPOINT, {
-          address: job.nexusAccount,
-          sort: 'timestamp', order: 'desc', limit: 100, offset: 0,
-        }), TREASURY_HISTORY_ENDPOINT);
+        for (let page = 0; page < 20; page += 1) {
+          const batch = unwrap(await apiCall(TREASURY_HISTORY_ENDPOINT, {
+            address: job.nexusAccount,
+            sort: 'timestamp', order: 'desc', limit: 100, offset: page * 100,
+          }), TREASURY_HISTORY_ENDPOINT);
+          if (!Array.isArray(batch)) return { verified: false, reason: 'invalid_claim_history' };
+          history.push(...batch);
+          if (batch.length < 100) { claimHistoryComplete = true; break; }
+        }
       } catch {
         return { verified: false, reason: 'claim_lookup_unavailable' };
       }
-      if (!Array.isArray(history)) return { verified: false, reason: 'invalid_claim_history' };
       const claims = [];
       let linkedMismatch = false;
       for (const claimTx of history) {
@@ -621,7 +697,8 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
       }
       if (claims.length === 0) {
         return {
-          verified: false, pendingClaim: true, reason: 'nexus_output_pending_claim',
+          verified: false, pendingClaim: true,
+          reason: claimHistoryComplete ? 'nexus_output_pending_claim' : 'nexus_output_claim_history_incomplete',
           txid: outputTxid, contractId: debit.contractId,
           receipt: selected.receipt, debitEvidence: debit.evidence,
         };

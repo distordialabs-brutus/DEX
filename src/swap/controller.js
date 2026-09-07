@@ -247,7 +247,7 @@ function createSwapController({store, nexus, solana, validateFunding, loadScope}
         job = tx.update(id, current => ({...current, mappingStartedAt: new Date().toISOString()}));
         await tx.commit();
       }
-      const mapping = await nexus.publishMapping(clone(job));
+      const mapping = await nexus.publishMapping(clone(job), {allowCreate: !job.mappingAddress && !job.mappingTxid});
       await assertScope(job);
       if (!mapping || typeof mapping.address !== 'string' || mapping.address.length === 0) {
         throw new Error('Mapping publication outcome is unknown.');

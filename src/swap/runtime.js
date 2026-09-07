@@ -71,6 +71,12 @@ function createRuntime({apiCall, secureApiCall, persistence, locks, cluster = 'm
     cluster, network, nexus, solana, scope, select, quote,
     discover: options => discoverProviders(read, options),
     validateFunding,
+    storageReason() {
+      if (!persistence || typeof persistence.healthy !== 'function') {
+        return 'Wallet lacks acknowledged module-storage capability; swap saving and funding are read-only.';
+      }
+      try { persistence.healthy(); return ''; } catch (error) { return error.message; }
+    },
     fundingReason(job) {
       try { assertDeploymentAccepted(job); return ''; } catch (error) { return error.message; }
     },
