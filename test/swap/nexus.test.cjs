@@ -415,7 +415,9 @@ function sourceRoutes(extra = {}) {
     'register/get/finance:account': {
       address: 'user-token-account', owner: 'user-genesis', token: 'token-register',
     },
-    'ledger/get/transaction': debitTransaction(),
+    'ledger/get/transaction': params => params.txid === 'mapping-create-txid'
+      ? {txid:'mapping-create-txid',confirmations:5,contracts:[{id:0,OP:'CREATE',address:'mapping-address'}]}
+      : debitTransaction(),
     [historyEndpoint]: [{
       txid: 'provider-credit-txid', confirmations: 5,
       contracts: [{

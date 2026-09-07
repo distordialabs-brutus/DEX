@@ -146,6 +146,7 @@ export default function StablecoinSwap({runtimeOverride}) {
     quote:quoted.value, nexusAccount, solanaAccount, nexusMinConfirmations:6,
     expiresAt:Date.now()+15*60*1000} : null;
   const reason = proposal ? runtime.fundingReason(proposal) : '';
+  const storageReason = runtime.storageReason();
   const fromSymbol = selected && (direction === 'solana-to-nexus' ? selected.provider.solanaSymbol : selected.provider.nexusSymbol);
   const toSymbol = selected && (direction === 'solana-to-nexus' ? selected.provider.nexusSymbol : selected.provider.solanaSymbol);
   const changeId = (key,value) => setIds(previous => ({...previous,[key]:value}));
@@ -222,9 +223,10 @@ export default function StablecoinSwap({runtimeOverride}) {
           </details>
           {direction==='solana-to-nexus' && <p className="notice">Do not use an ordinary wallet Send without a memo. The signing companion adds <code>{selected.provider.memoPrefix}{nexusAccount}</code> to the transaction automatically.</p>}
           <label><input style={{width:'auto',marginRight:8}} type="checkbox" checked={consent} disabled={busy} onChange={event=>setConsent(event.target.checked)} />I reviewed the provider, addresses and custodial risk.</label>
-          <button className="primary" disabled={busy || !proposal || !nexusAccount || !consent || (direction==='nexus-to-solana' && !solanaAccount)}
+          <button className="primary" disabled={busy || !!storageReason || !proposal || !nexusAccount || !consent || (direction==='nexus-to-solana' && !solanaAccount)}
             onClick={()=>run(async()=>{await runtime.controller.createJob(proposal);setNotice('Reviewed swap saved. No funds have been sent.');setConsent(false);})}>Save reviewed swap</button>
           {reason && <p className="notice">{reason}</p>}
+          {storageReason && <p className="notice">{storageReason}</p>}
         </>}
       </div>
     </div>
@@ -242,12 +244,26 @@ export default function StablecoinSwap({runtimeOverride}) {
           <button disabled={busy} onClick={()=>run(()=>runtime.controller.cancel(job.id))}>Cancel before funding</button>
           {runtime.fundingReason(job) && <p className="muted">{runtime.fundingReason(job)}</p>}
         </div>}
-        {['awaiting_signature','submission_unknown'].includes(job.state) && <div className="row">
+        {job.state==='awaiting_signature' && <div className="row">
           <input aria-label={`Source transaction for ${job.id}`} value={ids[`${job.id}:source`] || ''} onChange={event=>changeId(`${job.id}:source`,event.target.value)} placeholder="Paste existing source signature / debit txid" />
           <button disabled={busy || !ids[`${job.id}:source`]} onClick={()=>run(()=>runtime.controller.attachSource(job.id,ids[`${job.id}:source`]))}>Verify existing deposit</button>
         </div>}
+        {job.state==='submission_unknown' && <div className="row">
+          <input aria-label={`Nexus debit transaction for ${job.id}`} value={ids[`${job.id}:debit`] || ''} onChange={event=>changeId(`${job.id}:debit`,event.target.value)} placeholder="Paste exact Nexus debit transaction ID" />
+          <button disabled={busy || !ids[`${job.id}:debit`]} onClick={()=>run(()=>runtime.controller.importNexusDebit(job.id,ids[`${job.id}:debit`]))}>Verify existing Nexus debit</button>
+        </div>}
+        {['debit_submitted','awaiting_service_credit'].includes(job.state) && !job.sourceTxid && <div className="row">
+          <input aria-label={`Provider CREDIT transaction for ${job.id}`} value={ids[`${job.id}:credit`] || ''} onChange={event=>changeId(`${job.id}:credit`,event.target.value)} placeholder="Exact provider CREDIT transaction ID" />
+          <input aria-label={`Provider CREDIT contract for ${job.id}`} value={ids[`${job.id}:sourceContract`] || ''} onChange={event=>changeId(`${job.id}:sourceContract`,event.target.value)} placeholder="Exact CREDIT contract ID" />
+          <button disabled={busy || !ids[`${job.id}:credit`] || !ids[`${job.id}:sourceContract`]} onClick={()=>run(()=>runtime.controller.attachSource(job.id,ids[`${job.id}:credit`],ids[`${job.id}:sourceContract`]))}>Verify exact provider CREDIT</button>
+        </div>}
         {['debit_submitted','awaiting_service_credit'].includes(job.state) && <button disabled={busy} onClick={()=>run(()=>runtime.controller.inspect(job.id))}>Check provider credit</button>}
         {['mapping_unknown','awaiting_service_credit'].includes(job.state) && job.sourceTxid && <button disabled={busy} onClick={()=>run(()=>runtime.controller.repairMapping(job.id))}>Publish / recover routing only</button>}
+        {job.state==='mapping_unknown' && job.mappingStartedAt && (!job.mappingAddress || !job.mappingTxid) && <div className="row">
+          <input aria-label={`Mapping address for ${job.id}`} value={ids[`${job.id}:mappingAddress`] || ''} onChange={event=>changeId(`${job.id}:mappingAddress`,event.target.value)} placeholder="Exact created mapping address" />
+          <input aria-label={`Mapping create transaction for ${job.id}`} value={ids[`${job.id}:mappingTxid`] || ''} onChange={event=>changeId(`${job.id}:mappingTxid`,event.target.value)} placeholder="Exact mapping CREATE transaction ID" />
+          <button disabled={busy || !ids[`${job.id}:mappingAddress`] || !ids[`${job.id}:mappingTxid`]} onClick={()=>run(()=>runtime.controller.recoverMapping(job.id,ids[`${job.id}:mappingAddress`],ids[`${job.id}:mappingTxid`]))}>Verify created mapping</button>
+        </div>}
         {job.state==='awaiting_payout' && job.direction==='solana-to-nexus' && <div>
           <button disabled={busy} onClick={()=>run(()=>runtime.controller.complete(job.id,null))}>Check receipt / payout</button>
           {job.reason==='nexus_output_pending_claim' && <p className="notice">A source-bound payout receipt and Nexus DEBIT were found, but the spendable CREDIT is still pending. Open Receive in the Nexus wallet and follow its notifications to claim, then check again.</p>}

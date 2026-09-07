@@ -255,15 +255,14 @@ test('explicit manual debit-id import recovers unknown submission using exact pr
   assert.equal(debits, 1);
 });
 
-test('mapping failure can retry mapping only and never repeats debit', async () => {
+test('mapping failure never repeats debit or an uncertain mapping create', async () => {
   let mappings = 0;
   let debits = 0;
   const h = harness({nexus: {
     submitDebit: async () => { debits += 1; return {txid: 'debit-once'}; },
     publishMapping: async () => {
       mappings += 1;
-      if (mappings === 1) throw new Error('mapping unavailable');
-      return {address: 'repaired-map', txid: 'map-tx'};
+      throw new Error('mapping unavailable');
     },
   }});
   const created = await h.controller.createJob(intent('nexus-to-solana'));
@@ -271,11 +270,9 @@ test('mapping failure can retry mapping only and never repeats debit', async () 
   await h.controller.inspect(created.id);
   await assert.rejects(h.controller.repairMapping(created.id), /mapping unavailable/);
   assert.equal(h.store.get(created.id).state, 'mapping_unknown');
-  const repaired = await h.controller.repairMapping(created.id);
-  assert.equal(repaired.state, 'awaiting_payout');
-  assert.equal(repaired.mappingAddress, 'repaired-map');
+  await assert.rejects(h.controller.repairMapping(created.id), /manual/i);
   assert.equal(debits, 1);
-  assert.equal(mappings, 2);
+  assert.equal(mappings, 1);
 });
 
 test('scope is revalidated before funding, source observation, and completion', async () => {

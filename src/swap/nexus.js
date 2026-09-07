@@ -539,7 +539,7 @@ function createNexusClient({ apiCall, secureApiCall } = {}) {
       if (!verified.verified) {
         return {resolved:false, reason:verified.reason, address, txid:mappingTxid};
       }
-      return { resolved:true, address, txid: mappingTxid, evidence:verified.evidence };
+      return { address, txid: mappingTxid };
     },
 
     async verifyDebit(txid, job) {
