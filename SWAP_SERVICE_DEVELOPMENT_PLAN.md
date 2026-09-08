@@ -1,6 +1,6 @@
 # swapService Client Development Plan
 
-**Date:** 2026-09-07. **Status:** proposed development, not implemented. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md). Existing unrelated application work and Nexus Interface dependency constraints remain in force.
+**Date:** 2026-09-07; implementation status reviewed 2026-09-08 at `593ff0a517e5da78dbf37f723f9cdcc4219e7284`. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but target-wallet/live-node acceptance is incomplete and M5 is pending. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md), [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md), and [2026-09-08 review](DEVELOPMENT_REVIEW_2026-09-08.md). Existing Nexus Interface dependency constraints remain in force.
 
 ## Product boundary
 
@@ -8,7 +8,7 @@ The feature should let a user discover provider records on Nexus, inspect a prov
 
 It is a **custodial cross-chain bridge client**, distinct from native Nexus market orders. On-chain publication is not provider endorsement. Initial support is one classic SPL Token Program mint / Nexus token register per provider deployment; multiple provider records may belong to one operator. Do not advertise arbitrary assets, Token-2022, market-priced conversion or multi-chain execution merely because a record can describe them.
 
-**Recommendation:** deliver read-only provider discovery first, then a tested end-to-end single-pair workflow. Keep the dormant transaction UI disabled until funding and settlement gates pass. Simply uncommenting `StablecoinSwap` is not a valid release step.
+**Current recommendation:** preserve the implemented read-only provider discovery and offline-tested single-pair workflow, but keep every financial transition blocked until target-wallet storage, test-network settlement, service-side, and exact-deployment acceptance gates pass. The visible `StablecoinSwap` tab is not a release decision.
 
 ## Architectural contracts
 
@@ -82,13 +82,22 @@ Do not convert a timeout, missing lookup or changed balance into a terminal refu
 
 ## Milestones and acceptance criteria
 
-All milestones below are **pending**; they describe the recommended order, not a completed implementation.
+Status below distinguishes implementation/offline fixtures from target-wallet and live test-network evidence. A passing mocked suite does not satisfy a live acceptance criterion.
+
+| Milestone | 2026-09-08 status | Remaining exit evidence |
+|---|---|---|
+| M0 | **Substantially implemented offline** | Add mounted UI tests; remove the `swapJournal` Redux hydration warning; keep exact-head CI evidence current. |
+| M1 | **Implemented offline** | Verify rendering, real list/filter/pagination shapes, provider selection, and read-only behavior inside supported Nexus Interface versions against a target node. |
+| M2 | **Partial / host-blocked** | Exact math/codecs and the journal exist, but current Nexus Interface cannot acknowledge durable storage; prove crash/restart, capacity, and profile-switch semantics in the host. |
+| M3 | **Implemented behind gates, offline only** | Exercise both directions with real test tokens, wallet rejection/timeouts, accepted-but-lost responses, and restart without duplicate sends. |
+| M4 | **Implemented behind gates, offline only** | Validate receipt/claim, mapping, deep history, outages, and restart recovery against real Nexus/Solana/service behavior. |
+| M5 | **Pending** | Complete all cross-repository acceptance and add an evidence-pinned deployment entry; no entry is currently accepted. |
 
 ### M0 — Containment, integration contract and executable regression baseline
 
-**Priority:** first. **Ownership:** DEX, with swapService API/schema input.
+**Priority:** maintain as a required gate. **Ownership:** DEX, with swapService API/schema input. **Status:** substantially implemented offline; the transaction UI is visible for inspection/recovery, while storage and deployment gates prevent funding.
 
-- Keep transaction routing hidden/disabled; isolate the prototype so it cannot accidentally be exposed during unrelated tab work.
+- Keep financial routing disabled behind explicit storage and deployment gates; the visible inspection/recovery page must not make a mutation reachable during unrelated tab work.
 - Choose a test runner compatible with the supported Nexus Interface runtime and current lockfile. Do not bulk-upgrade dependencies. Resolve the unrelated ErrorBoundary move separately with explicit path staging.
 - Add a real test command and swap-focused lint gate; record any repository-wide baseline rather than calling existing red lint green.
 - Define versioned fixtures from current service output and chain evidence; distinguish recommended v1, old v1, future v2 and unsupported records.
@@ -98,7 +107,7 @@ All milestones below are **pending**; they describe the recommended order, not a
 
 ### M1 — Read-only provider discovery and inspection
 
-**Priority:** first visible product increment. **Ownership:** DEX; target-node query validation jointly owned.
+**Priority:** first visible product increment. **Ownership:** DEX; target-node query validation jointly owned. **Status:** implemented in production code and fixture-tested; target-wallet rendering and target-node query acceptance remain open.
 
 - Add paginated discovery through the wallet's Nexus read API with explicit complete/incomplete/unsupported/error outcomes.
 - Normalize known schemas; re-read chosen records by immutable address; validate built-in owner and immutable token/custody identities through trusted chain reads.
@@ -110,7 +119,7 @@ All milestones below are **pending**; they describe the recommended order, not a
 
 ### M2 — Exact quote core, protocol codecs and durable job store
 
-**Priority:** required before funding. **Ownership:** DEX plus service policy compatibility.
+**Priority:** required before funding. **Ownership:** DEX plus service policy compatibility. **Status:** exact quote/codecs and a serialized immutable journal are implemented; durable operation remains blocked because the current host lacks acknowledged module storage.
 
 - Extract React-free decimal/base-unit math and versioned deposit/payout/mapping codecs.
 - Derive terms from the selected validated provider and authoritative precision metadata. Show fees in the correct token domain; include minimum, dust/fee-only behavior and constraints.
@@ -121,7 +130,7 @@ All milestones below are **pending**; they describe the recommended order, not a
 
 ### M3 — Complete funding workflows without duplicate sends
 
-**Priority:** after M2. **Ownership:** DEX, with target Nexus semantics tested jointly.
+**Priority:** after M2. **Ownership:** DEX, with target Nexus semantics tested jointly. **Status:** both controller paths, external Solana signing, intent-first writes, unknown-outcome holds, and manual recovery are implemented and fixture-tested, but no real wallet/node/test-network acceptance exists.
 
 **Solana→Nexus MVP:** retain external-wallet handoff rather than introduce a new wallet-adapter dependency immediately. Display/copy exact mint, network, destination token account, amount and memo. Validate a pasted signature against that job, using supported transaction versions/programs and authoritative successful finalized evidence. An embedded Solana wallet can be added later as another funding adapter.
 
@@ -131,7 +140,7 @@ All milestones below are **pending**; they describe the recommended order, not a
 
 ### M4 — Attributable completion, holds and recovery
 
-**Priority:** required to complete the product promise. **Ownership:** DEX + service evidence contract.
+**Priority:** required to complete the product promise. **Ownership:** DEX + service evidence contract. **Status:** exact source/output proof, source-bound Nexus receipts, bounded claim-history pagination, mapping recovery, scope rechecks, and held states are implemented offline; service and chain semantics still require live acceptance.
 
 - Replace balance-delta and substring matching with exact source/contract/reference and destination/amount/mint/source-signer checks.
 - Confirm output finality and, on Nexus, actual credit/claim semantics; display debit submission separately from spendable receipt.
@@ -143,7 +152,7 @@ All milestones below are **pending**; they describe the recommended order, not a
 
 ### M5 — Cross-repository acceptance and controlled enablement
 
-**Priority:** final release gate. **Ownership:** DEX, swapService operator implementation and wallet compatibility owners.
+**Priority:** final release gate. **Ownership:** DEX, swapService operator implementation and wallet compatibility owners. **Status:** pending; `ACCEPTED_DEPLOYMENTS` is empty and the host-storage requirement is unresolved.
 
 - Run the whole flow in supported Nexus Interface versions and isolated Solana/Nexus test networks; verify real API field selection, global asset discovery/indexing, confirmation rules, debit-to-credit identity, mapping reads and token decimals.
 - Test one provider, two providers and two records owned by one signature chain. Include restart at every boundary, accepted-but-lost response, provider pause/outage, stale terms, incomplete history and explicit operator disposition.
@@ -153,8 +162,12 @@ All milestones below are **pending**; they describe the recommended order, not a
 
 **Exit:** a user can discover a real test provider from a clean client, verify its pair and terms, authorize one transfer, survive restart and obtain exact finalized output evidence—or a truthful durable unresolved state. No real production funds are required for acceptance. Every evidence-dependent label is traceable to its source.
 
-## Recommended first development batch
+## Recommended next development batch
 
-**M0 plus the read-only part of M1:** establish the swap test boundary and current-v1 adapter, extract immutable provider identity/validation, and build a provider list/details view with send disabled. This directly addresses the missing on-chain discovery requirement while avoiding premature funding exposure. It also establishes the contract consumed by quotes, jobs and chain adapters rather than extending the monolithic component.
+1. Add mounted React tests around `StablecoinSwap` using `runtimeOverride`: discovery failures, incomplete scans, provider changes, quote/consent invalidation, blocked storage/deployment, and every recovery control. The existing source/AST checks prove wiring, not user behavior.
+2. Split `swapJournal` from reducer-owned hydration so initialization preserves the persistence journal without placing an unknown root key in Redux; acceptance is a warning-free integration test that still preserves serialized settings/journal ordering.
+3. Build a target Nexus Interface harness for `updateStorageAcknowledged`, module installation/open-in-browser behavior, Web Locks, crash/restart, storage limits, and profile changes. Do not emulate acknowledgement with `Promise.resolve(updateStorage(...))`.
+4. Run M1 target-node read-only acceptance before any transfers, then isolated test-network M3/M4 scenarios with non-production assets and fault injection. Capture evidence for the exact wallet, node, service, provider record, and client commit.
+5. Measure and reduce the 1.23 MiB app and 567 KiB signer bundles using compatibility-tested code splitting/shared-boundary changes; keep the signing page self-contained and do not solve size by blind dependency upgrades.
 
-Treat broader TypeScript conversion, wallet-adapter replacement, performance refactoring and dependency upgrades as separate work. They do not close the current protocol and settlement gaps by themselves.
+Treat broader TypeScript conversion, wallet-adapter replacement and dependency upgrades as separate work. Security remediation is intentionally deferred until Nexus Interface compatibility can be demonstrated; no forced audit fix belongs in this plan.
