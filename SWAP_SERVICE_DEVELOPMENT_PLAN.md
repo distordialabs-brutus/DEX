@@ -1,6 +1,6 @@
 # swapService Client Development Plan
 
-**Date:** 2026-09-07; implementation status reviewed 2026-09-08 at `593ff0a517e5da78dbf37f723f9cdcc4219e7284`. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but target-wallet/live-node acceptance is incomplete and M5 is pending. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md), [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md), and [2026-09-08 review](DEVELOPMENT_REVIEW_2026-09-08.md). Existing Nexus Interface dependency constraints remain in force.
+**Date:** 2026-09-07; implementation status re-reviewed 2026-09-09 at `bd03f9021c6260d6481fb044053bbc5276315c0b`. No runtime file changed after the implementation baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284`. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but target-wallet/live-node acceptance is incomplete and M5 is pending. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md), [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md), and [2026-09-09 review](DEVELOPMENT_REVIEW_2026-09-09.md). Existing Nexus Interface dependency constraints remain in force.
 
 ## Product boundary
 
@@ -84,7 +84,7 @@ Do not convert a timeout, missing lookup or changed balance into a terminal refu
 
 Status below distinguishes implementation/offline fixtures from target-wallet and live test-network evidence. A passing mocked suite does not satisfy a live acceptance criterion.
 
-| Milestone | 2026-09-08 status | Remaining exit evidence |
+| Milestone | 2026-09-09 status | Remaining exit evidence |
 |---|---|---|
 | M0 | **Substantially implemented offline** | Add mounted UI tests; remove the `swapJournal` Redux hydration warning; keep exact-head CI evidence current. |
 | M1 | **Implemented offline** | Verify rendering, real list/filter/pagination shapes, provider selection, and read-only behavior inside supported Nexus Interface versions against a target node. |

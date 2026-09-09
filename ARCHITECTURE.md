@@ -2,7 +2,7 @@
 
 ## Reviewed baseline
 
-This document describes `master` at `593ff0a517e5da78dbf37f723f9cdcc4219e7284`, the 2026-09-07 reconciliation of the native DEX performance/ESLint work and the release-gated cross-chain client. Earlier dated reviews are historical snapshots; the current merge evidence is in [docs/BRANCH_RECONCILIATION.md](docs/BRANCH_RECONCILIATION.md) and the latest assessment is [DEVELOPMENT_REVIEW_2026-09-08.md](DEVELOPMENT_REVIEW_2026-09-08.md).
+Reviewed 2026-09-09 against `master` at `bd03f9021c6260d6481fb044053bbc5276315c0b`. The only commit after the runtime baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284` is the 2026-09-08 documentation review; `git diff --name-status 593ff0a..bd03f90` contains only this architecture, the swap plan, and that dated review. Runtime architecture and release status are therefore unchanged. Earlier dated reviews are historical snapshots; merge evidence is in [docs/BRANCH_RECONCILIATION.md](docs/BRANCH_RECONCILIATION.md) and the latest assessment is [DEVELOPMENT_REVIEW_2026-09-09.md](DEVELOPMENT_REVIEW_2026-09-09.md).
 
 ## Runtime and application shell
 
@@ -92,4 +92,4 @@ Do not populate an acceptance record or add a fake promise wrapper around fire-a
 - `npm run test:all`: both suites.
 - `npm run build`: emits `dist/js/app.js` and `dist/js/solana-signer.js`.
 
-These are offline regression gates, not live-chain or target-wallet acceptance. At the reviewed baseline, local tests and both lint commands pass, while whole-repository lint reports 21 warnings. The production build passes with three performance warnings and emits a 1.23 MiB app bundle plus a 567 KiB signer bundle. Rendering and user-interaction coverage for the swap page remains absent; its current “integration” checks parse source/AST rather than mounting the component.
+These are offline regression gates, not live-chain or target-wallet acceptance. The last executed evidence remains the 2026-09-08 run: local tests and both lint commands passed, whole-repository lint reported 21 warnings, and the production build passed with three performance warnings while emitting a 1.23 MiB app bundle plus a 567 KiB signer bundle. The 2026-09-09 attempt to rerun the configured commands was approval-denied before execution and is not fresh gate evidence. Rendering and user-interaction coverage for the swap page remains absent; its current “integration” checks parse source/AST rather than mounting the component.
