@@ -1,13 +1,13 @@
 # Nexus DEX Module
 
-A user-friendly decentralized exchange (DEX) module for the Nexus Wallet. Trade tokens, view market data, and swap stablecoins—all on-chain with enterprise-grade security.
+A Nexus Wallet module for native Nexus token trading and market data. The cross-chain surface is available for provider inspection and recovery only; new cross-chain funding is deliberately disabled pending release acceptance.
 
 ## ✨ Features
 
 - **🚀 Market Fill Trading** - Quick one-click buy/sell with automatic best price matching
 - **📊 Real-Time Market Data** - Live prices, order books, volumes, and market depth charts
 - **📈 Advanced Trading** - Place limit orders (bid/ask) and execute specific orders from the book
-- **🔄 Cross-Chain Stablecoin Swap** - Bridge between USDC (Solana) and USDD (Nexus)
+- **🔄 Cross-Chain Inspection** - Discover providers, inspect terms, calculate quotes, and review recovery evidence while funding remains release-gated
 - **🔒 Secure** - All transactions require PIN confirmation through the Nexus Wallet security model
 - **📉 Charts & Analytics** - Candlestick charts, volume data, and market depth visualization
 
@@ -92,34 +92,30 @@ The system automatically finds the best available price within your budget and i
 - Search and filter by token name
 - One-click market pair selection
 
-### 🔄 Stablecoin Swap
+### 🔄 Cross-chain swaps — inspection only
 
-Bridge between Solana USDC and Nexus USDD:
+The current module can discover known-schema service-provider records, inspect
+their declared terms, calculate exact-unit quotes, and review persisted recovery
+evidence. It is a **custodial provider workflow**, not an atomic swap.
 
-**USDC → USDD (Solana to Nexus)**
-1. Send USDC on Solana to the service address with memo: `nexus: <your_USDD_account>`
-2. Paste your Solana transaction signature in the module
-3. Module verifies on-chain and monitors for your USDD arrival
-4. Status updates automatically when complete
+New funding is intentionally unavailable. The runtime requires both an
+evidence-pinned accepted deployment and acknowledged durable storage from the
+host wallet; this repository currently has no accepted deployment. Do not send
+funds manually using an address, memo, fee, minimum, mint, or token identity from
+an older README or screenshot. Those values are provider- and deployment-specific
+and must be revalidated by the runtime before authorization.
 
-**USDD → USDC (Nexus to Solana)**
-1. Enter your Solana wallet address (must have USDC token account)
-2. Module verifies your Solana account setup
-3. Confirm the swap with your PIN
-4. USDC arrives at your Solana address
-
-**Swap Fees:**
-- Minimum: 0.2 (both directions)
-- Fee: 0.1 flat + 0.1% of amount
-- "Estimated received" shown before confirmation
+Release criteria and recovery boundaries are maintained in
+[`docs/CROSS_CHAIN_SWAPS.md`](docs/CROSS_CHAIN_SWAPS.md) and the current
+[development plan](SWAP_SERVICE_DEVELOPMENT_PLAN.md).
 
 ## 🔒 Security
 
-All transactions use the Nexus Wallet's built-in security model:
-- PIN required for every transaction
-- No private keys exposed to the module
-- Direct blockchain API calls (no intermediaries)
-- Open source and auditable
+Native Nexus transactions use the Nexus Wallet's confirmation boundary:
+- PIN confirmation is requested for native Nexus mutations
+- Nexus private keys are not exposed to the module
+- Cross-chain providers are intermediaries; published provider records are not endorsements or proof of solvency
+- Cross-chain funding stays disabled until the documented wallet, node, service, and deployment gates pass
 
 Learn more: [Nexus Module Security Documentation](https://github.com/Nexusoft/NexusInterface/blob/master/docs/Modules/module-security.md)
 
@@ -127,15 +123,14 @@ Learn more: [Nexus Module Security Documentation](https://github.com/Nexusoft/Ne
 
 - **Token Requirements** - Currently only works with tokens that have global names
 - **Market Pair Format** - Enter as BASE/QUOTE (e.g., DIST/NXS)
-- **Stablecoin Swap** - Uses Solana mainnet USDC mint (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`)
-- **Network** - Requires connection to Nexus network and (for swaps) Solana RPC
+- **Cross-chain status** - Provider inspection is available; new funding is not release-enabled
+- **Networks and assets** - Treat the identities displayed from validated deployment policy as authoritative; do not rely on hard-coded examples
 
-## 🛠️ Advanced Configuration
+## 🛠️ Cross-chain network policy
 
-**Custom Solana RPC Endpoint** (optional):
-```bash
-export SOLANA_RPC_URL=https://your-custom-rpc-url.com
-```
+Cross-chain evidence queries use the static reviewed network policy in
+`src/swap/deployment.js`. A `SOLANA_RPC_URL` environment override is not part of
+the current module contract.
 
 ## 📄 License
 
