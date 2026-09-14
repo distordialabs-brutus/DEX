@@ -1,6 +1,6 @@
 # swapService Client Development Plan
 
-**Date:** 2026-09-07; implementation status re-reviewed 2026-09-09 at `bd03f9021c6260d6481fb044053bbc5276315c0b`. No runtime file changed after the implementation baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284`. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but target-wallet/live-node acceptance is incomplete and M5 is pending. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md), [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md), and [2026-09-09 review](DEVELOPMENT_REVIEW_2026-09-09.md). Existing Nexus Interface dependency constraints remain in force.
+**Date:** 2026-09-07; implementation status re-reviewed 2026-09-10 from the current worktree. Git HEAD/branch continuity could not be refreshed because the identity command was approval-denied; the last verified Git baseline remains `bd03f9021c6260d6481fb044053bbc5276315c0b` and runtime baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284`. Fresh hashes of the manifest/lockfile and principal safety boundaries match the 2026-09-09 snapshot. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but target-wallet/live-node acceptance is incomplete and M5 is pending. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md), [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md), and [2026-09-10 review](DEVELOPMENT_REVIEW_2026-09-10.md). Existing Nexus Interface dependency constraints remain in force.
 
 ## Product boundary
 
@@ -84,9 +84,9 @@ Do not convert a timeout, missing lookup or changed balance into a terminal refu
 
 Status below distinguishes implementation/offline fixtures from target-wallet and live test-network evidence. A passing mocked suite does not satisfy a live acceptance criterion.
 
-| Milestone | 2026-09-09 status | Remaining exit evidence |
+| Milestone | 2026-09-10 status | Remaining exit evidence |
 |---|---|---|
-| M0 | **Substantially implemented offline** | Add mounted UI tests; remove the `swapJournal` Redux hydration warning; keep exact-head CI evidence current. |
+| M0 | **Substantially implemented offline** | Fresh install, test, lint, and build commands pass (41 Jest + 110 swap tests), but the manifest check was approval-denied; add mounted UI tests, remove the `swapJournal` Redux hydration warning, and establish exact-head CI evidence. |
 | M1 | **Implemented offline** | Verify rendering, real list/filter/pagination shapes, provider selection, and read-only behavior inside supported Nexus Interface versions against a target node. |
 | M2 | **Partial / host-blocked** | Exact math/codecs and the journal exist, but current Nexus Interface cannot acknowledge durable storage; prove crash/restart, capacity, and profile-switch semantics in the host. |
 | M3 | **Implemented behind gates, offline only** | Exercise both directions with real test tokens, wallet rejection/timeouts, accepted-but-lost responses, and restart without duplicate sends. |
@@ -164,10 +164,11 @@ Status below distinguishes implementation/offline fixtures from target-wallet an
 
 ## Recommended next development batch
 
-1. Add mounted React tests around `StablecoinSwap` using `runtimeOverride`: discovery failures, incomplete scans, provider changes, quote/consent invalidation, blocked storage/deployment, and every recovery control. The existing source/AST checks prove wiring, not user behavior.
-2. Split `swapJournal` from reducer-owned hydration so initialization preserves the persistence journal without placing an unknown root key in Redux; acceptance is a warning-free integration test that still preserves serialized settings/journal ordering.
-3. Build a target Nexus Interface harness for `updateStorageAcknowledged`, module installation/open-in-browser behavior, Web Locks, crash/restart, storage limits, and profile changes. Do not emulate acknowledgement with `Promise.resolve(updateStorage(...))`.
-4. Run M1 target-node read-only acceptance before any transfers, then isolated test-network M3/M4 scenarios with non-production assets and fault injection. Capture evidence for the exact wallet, node, service, provider record, and client commit.
-5. Measure and reduce the 1.23 MiB app and 567 KiB signer bundles using compatibility-tested code splitting/shared-boundary changes; keep the signing page self-contained and do not solve size by blind dependency upgrades.
+1. Remove unsafe active swap guidance from `README.md`: it must not instruct funding while the allowlist is empty, describe a custodial bridge as intermediary-free, publish hard-coded terms/identity as current, or advertise an RPC override the runtime ignores. Replace it with read-only/release-gate status and links to the authoritative operating boundary.
+2. Add mounted React tests around `StablecoinSwap` using `runtimeOverride`: discovery failures, incomplete scans, provider changes, quote/consent invalidation, blocked storage/deployment, and every recovery control. The existing source/AST checks prove wiring, not user behavior.
+3. Split `swapJournal` from reducer-owned hydration so initialization preserves the persistence journal without placing an unknown root key in Redux; acceptance is a warning-free integration test that still preserves serialized settings/journal ordering.
+4. Build a target Nexus Interface harness for `updateStorageAcknowledged`, module installation/open-in-browser behavior, Web Locks, crash/restart, storage limits, and profile changes. Do not emulate acknowledgement with `Promise.resolve(updateStorage(...))`.
+5. Run M1 target-node read-only acceptance before any transfers, then isolated test-network M3/M4 scenarios with non-production assets and fault injection. Capture evidence for the exact wallet, node, service, provider record, and client commit.
+6. Measure and reduce the 1.23 MiB app and 567 KiB signer bundles using compatibility-tested code splitting/shared-boundary changes; keep the signing page self-contained and do not solve size by blind dependency upgrades.
 
 Treat broader TypeScript conversion, wallet-adapter replacement and dependency upgrades as separate work. Security remediation is intentionally deferred until Nexus Interface compatibility can be demonstrated; no forced audit fix belongs in this plan.

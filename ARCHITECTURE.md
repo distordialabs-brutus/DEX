@@ -2,7 +2,7 @@
 
 ## Reviewed baseline
 
-Reviewed 2026-09-09 against `master` at `bd03f9021c6260d6481fb044053bbc5276315c0b`. The only commit after the runtime baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284` is the 2026-09-08 documentation review; `git diff --name-status 593ff0a..bd03f90` contains only this architecture, the swap plan, and that dated review. Runtime architecture and release status are therefore unchanged. Earlier dated reviews are historical snapshots; merge evidence is in [docs/BRANCH_RECONCILIATION.md](docs/BRANCH_RECONCILIATION.md) and the latest assessment is [DEVELOPMENT_REVIEW_2026-09-09.md](DEVELOPMENT_REVIEW_2026-09-09.md).
+Re-reviewed 2026-09-10 from the current worktree. The last verified Git baseline remains `master` at `bd03f9021c6260d6481fb044053bbc5276315c0b` with runtime baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284`: the 2026-09-10 Git identity/continuity command was approval-denied, so no newer HEAD or branch-alignment claim is made. Fresh SHA-256 readback shows `package.json`, `package-lock.json`, `nxs_package.json`, and the four safety-boundary files named in the 2026-09-09 review are byte-identical to that reviewed snapshot. Runtime architecture and release status remain unchanged in the inspected safety paths. Earlier dated reviews are historical snapshots; merge evidence is in [docs/BRANCH_RECONCILIATION.md](docs/BRANCH_RECONCILIATION.md) and the latest assessment is [DEVELOPMENT_REVIEW_2026-09-10.md](DEVELOPMENT_REVIEW_2026-09-10.md).
 
 ## Runtime and application shell
 
@@ -83,6 +83,8 @@ Cross-chain discovery, inspection, and quote calculation are exposed, but fundin
 
 Do not populate an acceptance record or add a fake promise wrapper around fire-and-forget storage. Follow [docs/CROSS_CHAIN_SWAPS.md](docs/CROSS_CHAIN_SWAPS.md) and [SWAP_SERVICE_DEVELOPMENT_PLAN.md](SWAP_SERVICE_DEVELOPMENT_PLAN.md). Dependency/security remediation remains a compatibility-gated workstream; do not apply blind upgrades or forced audit fixes.
 
+The maintained `README.md` is currently unsafe as swap operating guidance: it advertises a working USDC/USDD bridge, instructs users to send funds with a fixed memo, publishes fixed fees/minima and mainnet identity, calls the flow intermediary-free, and suggests a `SOLANA_RPC_URL` override that the static runtime policy does not consume. Those statements conflict with the empty deployment allowlist, custodial architecture, provider-derived terms, and static RPC policy. Until corrected and validated, use the architecture and cross-chain operating document—not the README—for swap safety and release status, and do not follow its funding instructions.
+
 ## Build and verification boundaries
 
 - `npm run lint`: repository ESLint gate; errors fail, warnings currently do not.
@@ -92,4 +94,4 @@ Do not populate an acceptance record or add a fake promise wrapper around fire-a
 - `npm run test:all`: both suites.
 - `npm run build`: emits `dist/js/app.js` and `dist/js/solana-signer.js`.
 
-These are offline regression gates, not live-chain or target-wallet acceptance. The last executed evidence remains the 2026-09-08 run: local tests and both lint commands passed, whole-repository lint reported 21 warnings, and the production build passed with three performance warnings while emitting a 1.23 MiB app bundle plus a 567 KiB signer bundle. The 2026-09-09 attempt to rerun the configured commands was approval-denied before execution and is not fresh gate evidence. Rendering and user-interaction coverage for the swap page remains absent; its current “integration” checks parse source/AST rather than mounting the component.
+These are offline regression gates, not live-chain or target-wallet acceptance. They were rerun after a clean `npm ci` on 2026-09-10: 41 Jest tests passed with 78.4% statement coverage; 110 swap tests passed; strict swap lint passed with zero warnings; repository lint passed with the same 21 warnings; and the production build passed with three performance warnings while emitting a 1.23 MiB app bundle plus a 567 KiB signer bundle. `npm ci` reported 36 audit findings (4 low, 14 moderate, 16 high, 2 critical); remediation remains compatibility-gated rather than a blind forced upgrade. The Jest run still emits the known `swapJournal` unknown-root-key diagnostic. The final manifest-file CI command was approval-denied and was not rerouted. Rendering and user-interaction coverage for the swap page remains absent; its current “integration” checks parse source/AST rather than mounting the component.
