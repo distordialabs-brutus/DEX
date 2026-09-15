@@ -1,6 +1,10 @@
 # DEX architecture
 
-## Reviewed baseline
+## Current review — 2026-09-15
+
+The [September 15 review](DEVELOPMENT_REVIEW_2026-09-15.md) supersedes the status summary below. Eight principal source/configuration hashes remain identical to September 12; fresh offline tests, lint and build pass with the same warnings. Cross-chain funding remains blocked. Service-side recovery intent and minimum-policy defects identified in swapService must close before deployment acceptance. Detailed Git continuity was approval-blocked; the older baseline below is historical, not a claim about today's remote.
+
+## Historical reviewed baseline
 
 Re-reviewed 2026-09-10 from the current worktree. The last verified Git baseline remains `master` at `bd03f9021c6260d6481fb044053bbc5276315c0b` with runtime baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284`: the 2026-09-10 Git identity/continuity command was approval-denied, so no newer HEAD or branch-alignment claim is made. Fresh SHA-256 readback shows `package.json`, `package-lock.json`, `nxs_package.json`, and the four safety-boundary files named in the 2026-09-09 review are byte-identical to that reviewed snapshot. Runtime architecture and release status remain unchanged in the inspected safety paths. Earlier dated reviews are historical snapshots; merge evidence is in [docs/BRANCH_RECONCILIATION.md](docs/BRANCH_RECONCILIATION.md) and the latest assessment is [DEVELOPMENT_REVIEW_2026-09-10.md](DEVELOPMENT_REVIEW_2026-09-10.md).
 
