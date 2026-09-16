@@ -2,9 +2,9 @@
 
 **Date:** 2026-09-07; implementation status re-reviewed 2026-09-10 from the current worktree. Git HEAD/branch continuity could not be refreshed because the identity command was approval-denied; the last verified Git baseline remains `bd03f9021c6260d6481fb044053bbc5276315c0b` and runtime baseline `593ff0a517e5da78dbf37f723f9cdcc4219e7284`. Fresh hashes of the manifest/lockfile and principal safety boundaries match the 2026-09-09 snapshot. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but target-wallet/live-node acceptance is incomplete and M5 is pending. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md), [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md), and [2026-09-10 review](DEVELOPMENT_REVIEW_2026-09-10.md). Existing Nexus Interface dependency constraints remain in force.
 
-## Current execution order — 2026-09-15
+## Current execution order — 2026-09-16
 
-Use the [September 15 review](DEVELOPMENT_REVIEW_2026-09-15.md) as the latest evidence. First fix reducer/journal hydration with warning-free INITIALIZE and settings-write tests, then mount the swap page and prove the real supported-wallet acknowledged-write/restart contract. Keep funding disabled while swapService closes chain-only refund/quarantine intent reconstruction and post-ingestion minimum-policy enforcement. Its new provider-v2 builder is not integrated registration/recovery support. Require exact service and wallet candidate evidence before M5; do not infer closure from batch commits or replace acknowledgement with a fire-and-forget call. Dependency upgrades remain a separate compatibility-controlled batch.
+Use the [September 16 review](DEVELOPMENT_REVIEW_2026-09-16.md) as the latest evidence. A clean install and the complete configured local gate reproduce the September 15 results; no runtime delta is established. First fix reducer/journal hydration with warning-free INITIALIZE and settings-write tests, then replace source/AST wiring claims with mounted swap-page interaction tests and prove the real supported-wallet acknowledged-write/restart contract. Keep funding disabled while swapService closes chain-only refund/quarantine intent reconstruction and post-ingestion minimum-policy enforcement. Require exact service and wallet candidate evidence before M5; do not replace acknowledgement with a fire-and-forget call. Dependency upgrades remain a separate compatibility-controlled batch.
 
 ## Product boundary
 
@@ -168,7 +168,7 @@ Status below distinguishes implementation/offline fixtures from target-wallet an
 
 ## Recommended next development batch
 
-1. Remove unsafe active swap guidance from `README.md`: it must not instruct funding while the allowlist is empty, describe a custodial bridge as intermediary-free, publish hard-coded terms/identity as current, or advertise an RPC override the runtime ignores. Replace it with read-only/release-gate status and links to the authoritative operating boundary.
+1. Keep the corrected `README.md` aligned with the fail-closed runtime: inspection-only status, custodial-provider wording, no manual funding identities, and no unsupported RPC override. Add a documentation contract check if these release facts begin drifting again.
 2. Add mounted React tests around `StablecoinSwap` using `runtimeOverride`: discovery failures, incomplete scans, provider changes, quote/consent invalidation, blocked storage/deployment, and every recovery control. The existing source/AST checks prove wiring, not user behavior.
 3. Split `swapJournal` from reducer-owned hydration so initialization preserves the persistence journal without placing an unknown root key in Redux; acceptance is a warning-free integration test that still preserves serialized settings/journal ordering.
 4. Build a target Nexus Interface harness for `updateStorageAcknowledged`, module installation/open-in-browser behavior, Web Locks, crash/restart, storage limits, and profile changes. Do not emulate acknowledgement with `Promise.resolve(updateStorage(...))`.

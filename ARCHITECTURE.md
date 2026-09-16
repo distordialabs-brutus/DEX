@@ -1,8 +1,8 @@
 # DEX architecture
 
-## Current review — 2026-09-15
+## Current review — 2026-09-16
 
-The [September 15 review](DEVELOPMENT_REVIEW_2026-09-15.md) supersedes the status summary below. Eight principal source/configuration hashes remain identical to September 12; fresh offline tests, lint and build pass with the same warnings. Cross-chain funding remains blocked. Service-side recovery intent and minimum-policy defects identified in swapService must close before deployment acceptance. Detailed Git continuity was approval-blocked; the older baseline below is historical, not a claim about today's remote.
+The [September 16 review](DEVELOPMENT_REVIEW_2026-09-16.md) is the current evidence. No runtime delta from September 15 is established by direct source inspection and the clean-install gate: 41 Jest tests and 110 swap tests pass, swap lint is clean, repository lint retains 21 warnings, and both bundles build with three performance warnings. Cross-chain funding remains blocked by the empty deployment acceptance registry and missing acknowledged wallet storage. The Redux hydration warning and absence of mounted swap interaction tests remain the first client exits. Detailed Git continuity was approval-blocked; older Git baselines below are historical.
 
 ## Historical reviewed baseline
 
@@ -87,7 +87,7 @@ Cross-chain discovery, inspection, and quote calculation are exposed, but fundin
 
 Do not populate an acceptance record or add a fake promise wrapper around fire-and-forget storage. Follow [docs/CROSS_CHAIN_SWAPS.md](docs/CROSS_CHAIN_SWAPS.md) and [SWAP_SERVICE_DEVELOPMENT_PLAN.md](SWAP_SERVICE_DEVELOPMENT_PLAN.md). Dependency/security remediation remains a compatibility-gated workstream; do not apply blind upgrades or forced audit fixes.
 
-The maintained `README.md` is currently unsafe as swap operating guidance: it advertises a working USDC/USDD bridge, instructs users to send funds with a fixed memo, publishes fixed fees/minima and mainnet identity, calls the flow intermediary-free, and suggests a `SOLANA_RPC_URL` override that the static runtime policy does not consume. Those statements conflict with the empty deployment allowlist, custodial architecture, provider-derived terms, and static RPC policy. Until corrected and validated, use the architecture and cross-chain operating document—not the README—for swap safety and release status, and do not follow its funding instructions.
+The maintained `README.md` now matches the fail-closed implementation: it labels cross-chain use inspection-only, identifies the provider as an intermediary, removes manual funding and fixed-identity guidance, and states that no `SOLANA_RPC_URL` override is supported. Keep that summary synchronized with this architecture and `docs/CROSS_CHAIN_SWAPS.md`; dated reviews that describe the earlier unsafe README are historical evidence, not current instructions.
 
 ## Build and verification boundaries
 
