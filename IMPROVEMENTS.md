@@ -13,13 +13,13 @@ corrected, and the artefacts they referred to are listed under
 
 ---
 
-> **Review history and current baseline:** independent reviews from
-> [`2026-08-24`](DEVELOPMENT_REVIEW_2026-08-24.md) through
-> [`2026-09-07`](DEVELOPMENT_REVIEW_2026-09-07.md) preserve the evidence behind
-> earlier status corrections. The current tree now also contains the separately
-> tested cross-chain client described in §25; that implementation does **not**
-> mean funding is release-enabled. Dependency upgrades remain deferred pending
-> Nexus Interface compatibility validation.
+> **Review history and current baseline:** independent dated reviews preserve the
+> evidence behind earlier status corrections. The current assessment is
+> [`2026-09-17`](DEVELOPMENT_REVIEW_2026-09-17.md) at `master`/`origin/master`
+> `d07bffc6f900d94206662bd3b3f442fdf2b7f6c2`; its post-source-baseline commit is
+> documentation-only. The separately tested cross-chain client described in §25
+> does **not** mean funding is release-enabled. Dependency upgrades remain
+> deferred pending Nexus Interface compatibility validation.
 
 ## 1. Code Quality & Maintainability
 
@@ -468,10 +468,12 @@ workstream and does not advance these items.
 
 ## A. Architecture
 
-### A1. One polling scheduler instead of five independent intervals — M
-Today each component owns an interval: `Main` every 15s (order book + executed
-trades), `markets` every 60s, `HoldersList` every 120s, `nftMarketplace` every
-30s, `ChartWindow` on market change. Nothing coordinates them.
+### A1. One polling scheduler instead of five independent loops — M
+Today each feature owns refresh behavior: `Main` every 15s (order book + executed
+trades), `stablecoinSwap` every 15s (pending-job observation), `markets` every
+60s, `HoldersList` every 120s, and `nftMarketplace` every 30s. `ChartWindow`
+fetches on market change; the apparent 5-second Overview interval is commented
+out. Nothing coordinates the five active recurring loops.
 
 Consequences: polling continues while a tab is not visible and while the wallet
 window is in the background; a node that is down produces an error dialog per
@@ -706,35 +708,35 @@ exist in the repository at any commit on this branch:
 
 ---
 
-## Implementation priority
+## Implementation priority — 2026-09-17
 
-This covers the remediation items (§1–§25). For the forward-looking work see
-[Suggested sequencing](#suggested-sequencing) in the roadmap above — the two
-lists are independent, and the roadmap's Phase 1 can start in parallel.
+**Immediate correctness and evidence:**
+1. Remove `swapJournal` from Redux hydration in `src/reducers/index.js` while
+   retaining full persistence hydration in `src/configureStore.js`. Extend
+   `__tests__/configureStore.test.js` to require zero Redux diagnostics, exact
+   `ui/settings/nexus` roots, exact journal preservation, and ordered settings
+   writes.
+2. Add collected rendered tests for `src/App/stablecoinSwap.js` using
+   `runtimeOverride`. Discovery outcomes, stale promises, consent invalidation,
+   blocked funding, double activation, unmount, and recovery controls must be
+   exercised through the UI; source/AST checks do not meet this acceptance.
+3. Add tests for `fetchOrderBook`'s fallback (§22) and `placeOrder` validation.
 
-**Highest value:**
-1. Tests for `fetchOrderBook`'s fallback (§22) and for `placeOrder`'s validation
-   branches. CI runs the Jest suite on every PR now, so each new test permanently
-   protects a path — and §23 showed that a silent normalization bug can sit in
-   the most-read numbers in the UI indefinitely.
-2. Summarise the `contract`/`order` and NXS 1e6 conventions in `ARCHITECTURE.md`,
-   pointing at `utils/marketData.js` as the enforcement point (§7a, §23).
-3. Keep the swap regressions and zero-warning lint gate green in CI, and keep
-   funding blocked until every release prerequisite in §25 is independently
-   satisfied.
+**Release-gate work:**
+4. Prove acknowledged module-storage writes, restart/capacity/profile-switch
+   behavior, and Web Locks in a supported Nexus Interface harness. Keep funding
+   blocked until service policy/disposition exits and both test-network
+   directions pass against exact recorded candidates.
+5. Preserve the compatibility gate: record audit debt, but do not run forced or
+   blind dependency upgrades. Measure bundle reduction separately.
 
-**Medium:**
-4. `React.memo` + a `useMarketPair()` hook (§3a, §6a).
-5. Route the remaining fetch thunks through `apiCallWithRetry` (§3c).
-6. Remove or convert the dead `solanaProvider.js` (§21), then re-measure the
-   bundle with the replacement cross-chain client active (§10a, §20).
-7. Dependency auditing (§4a).
-
-**Lower:**
-8. Virtualization, once row counts justify it (§3b).
-9. Accessibility pass on the clickable table rows (§5c).
-10. Gradual TypeScript migration (§1b).
-11. Redux Toolkit migration (§6b).
+**Native DEX architecture after the safety exits:**
+6. Add behavior tests around hook dependencies and the five refresh loops, then
+   implement A1/A2/A7 without stale pair/profile updates or repeated dialogs.
+7. Implement A3 before A4 so endpoint projections, normalization, and exact
+   money conversions have one enforceable boundary.
+8. Remove or convert dead `src/components/solanaProvider.js`; then proceed with
+   theme/accessibility/responsiveness and the roadmap sequence above.
 
 ## Conclusion
 
