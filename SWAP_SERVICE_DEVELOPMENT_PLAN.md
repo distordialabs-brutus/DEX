@@ -1,10 +1,38 @@
 # swapService Client Development Plan
 
-**Date:** 2026-09-07; implementation status re-reviewed 2026-09-21 from clean `master`/`origin/master` `a78b82f884c196fb71c48ba899b83b528254d8db`. There are no runtime, test, build, manifest, lockfile, or CI changes relative to source baseline `a735b621e0338c904d3b42aef2023d60feb7ef12`. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but target-wallet/live-node acceptance is incomplete and M5 is pending. **Basis:** [source-grounded evaluation](SWAP_SERVICE_EVALUATION.md), [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md), and [2026-09-21 review](DEVELOPMENT_REVIEW_2026-09-21.md). Existing Nexus Interface dependency constraints remain in force.
+**Date:** 2026-09-07; DEX implementation status re-reviewed 2026-09-23 at `master`/`origin/master` `416855d14ab605450bdf4ead92b66ded5e931330`, exactly the prior reviewed runtime. There are no intervening runtime, test, build, manifest, lockfile, or CI changes. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but authoritative cross-window journal persistence, rendered UI evidence, target-wallet/live-node acceptance, and M5 remain incomplete. **Basis:** [September 23 DEX review](DEVELOPMENT_REVIEW_2026-09-23.md), [cross-repository evaluation](SWAP_SERVICE_EVALUATION.md), and [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). The September 22 swapService comparison is retained, not freshly re-reviewed here. Existing Nexus Interface dependency constraints remain in force.
 
-## Current execution order — 2026-09-21
+## Current execution order — 2026-09-23
 
-Use the [September 21 review](DEVELOPMENT_REVIEW_2026-09-21.md) as the latest evidence. With no implementation change since the prior successful review, a clean install and complete configured local gate again reproduce 41 Jest and 110 swap passes. First make `__tests__/configureStore.test.js` fail on any Redux diagnostic and project only reducer-owned roots into Redux, then add a default-collected rendered `StablecoinSwap({ runtimeOverride })` suite and rename the misleading AST “mounted” test. Prove the real supported-wallet acknowledged-write/restart contract only after those local exits. Keep funding disabled while swapService closes chain-only refund/quarantine intent reconstruction and post-ingestion minimum-policy enforcement. Require exact service and wallet candidate evidence before M5; do not replace acknowledgement with a fire-and-forget call. Dependency upgrades remain a separate compatibility-controlled batch.
+[September 23 DEX evidence](DEVELOPMENT_REVIEW_2026-09-23.md) confirms no implementation
+progress since the September 22 bridge review. Fresh gates remain green, but the real-controller
+multiwindow and lost-ack probes still reproduce C-1/C-2, Redux hydration still emits three
+unknown-key diagnostics, and no collected test mounts the swap component. Do not enable funding or
+merely wire a promise-returning host extension.
+
+1. **Storage protocol first (C-1/C-2):** reproduce the real-controller two-window duplicate and
+   lost-ack/settings journal erasure in default-collected tests. Implement authoritative read,
+   revision/CAS and acknowledged updates across every module writer/context, or separate journal
+   ownership. Require one remote call for the same job and preservation of both windows’ jobs,
+   remote IDs and uncertain states through restart. Correct Redux hydration without moving the
+   journal into reducer ownership.
+2. **Signing handoff (C-5):** coordinate attempts with durable wallet-owned state across contexts;
+   distinguish no-attempt handoff from unknown submission and verified source. Test browser-launch
+   failure, reopening, cleared storage, isolated profiles, consent and no unsafe cancellation.
+3. **Complete service policy (C-3/C-6):** publish and freeze max inputs, Nexus dust and actual
+   finality; guard dust/minimum configuration and retain positive custody obligations. Shared
+   fixtures must reject below/exact/above boundary mismatches before funding.
+4. **Receipt and backend acceptance (C-4/C-7):** close the receipt-enabled production-startup
+   contradiction without weakening source-bound proof. Repair backend total-loss authorization,
+   admission and operator-resolution gates. The minimum classifier and typed cap holds already
+   exist; their unsent DB-loss boundary is the reopened defect.
+5. **Rendered/host/live gates:** collect real UI interaction tests, then prove supported-wallet
+   durable storage and test-network settlement with exact candidate identities before M5.
+   Keep compatibility-controlled dependency work separate; no forced audit fixes.
+
+## Historical execution order — 2026-09-21
+
+The [September 21 review](DEVELOPMENT_REVIEW_2026-09-21.md) was the evidence for this historical order. With no implementation change since its prior baseline, a clean install and complete configured local gate reproduced 41 Jest and 110 swap passes. That review prioritized failing on Redux diagnostics, projecting only reducer-owned roots into Redux, adding a default-collected rendered `StablecoinSwap({ runtimeOverride })` suite, and proving the real supported-wallet acknowledged-write/restart contract. The September 22/23 evidence supersedes this ordering by placing authoritative multiwindow and uncertain-ack journal persistence first. Dependency upgrades remain a separate compatibility-controlled batch.
 
 ## Product boundary
 
@@ -34,11 +62,12 @@ A normalized provider model should distinguish:
 
 **Current compatibility:** recommended v1 uses `distordiaType=nexusBridgeHeartbeat`; older v1 heartbeat fields differ. Build explicit adapters and independent token-metadata reads. Missing required terms/identity must mean unsupported or inspect-only, not fallback to old USDC/USDD defaults. A current v1 adapter does not require changing the provider's name-based writer to let the client pin an asset address.
 
-**Future target:** provider-v2 uses exact `distordia-type=swapService`, schema/service IDs, address-based instance isolation and a fuller public contract. It remains planned in swapService. Agree its schema, field-size budget, migration rules and target-node query semantics jointly before enabling a v2 writer or reader as production infrastructure. Do not invent a v2-only discovery query and call existing v1 providers absent.
+**Future target:** provider-v2 uses exact `distordia-type=swapService`, schema/service IDs, address-based instance isolation and a fuller public contract. Its builder/tests are now committed in swapService, but runtime publication remains v1. Agree its schema, field-size budget, migration rules and target-node query semantics jointly before enabling a v2 writer or reader as production infrastructure. Do not invent a v2-only discovery query and call existing v1 providers absent.
 
 **Upstream release dependencies:** distinguish registration defaults from publisher updates so
 omitted safe waterlines remain unchanged, verify address-bound per-instance checkpoint isolation,
-and close the main Nexus→Solana daily payout-cap bypass. These are swapService responsibilities;
+and close the current backend DB-loss/admission/hold-resolution findings. The old main-payout
+cap-bypass statement is historical, not a finding re-established against `85030c8`. These are swapService responsibilities;
 a DEX parser or UI guard cannot substitute for those service-side controls. Include their
 regression and live-boundary evidence in M5 acceptance.
 
@@ -88,9 +117,9 @@ Do not convert a timeout, missing lookup or changed balance into a terminal refu
 
 Status below distinguishes implementation/offline fixtures from target-wallet and live test-network evidence. A passing mocked suite does not satisfy a live acceptance criterion.
 
-| Milestone | 2026-09-21 status | Remaining exit evidence |
+| Milestone | 2026-09-23 status | Remaining exit evidence |
 |---|---|---|
-| M0 | **Substantially implemented offline** | Fresh install, test, lint, build, and 12-file manifest commands pass (41 Jest + 110 swap tests); targeted containment is 25/25, but the focused configure-store run reproduces three Redux diagnostics. Add rendered UI tests, remove the hydration warning, and establish exact-head CI evidence. |
+| M0 | **Substantially implemented offline** | Existing-tree verification passes 41 Jest + 110 swap tests, both lint gates, build, and the 12-file manifest check. It also reproduces three Redux diagnostics; no collected test renders the component; and two offline real-controller/coordinator probes expose cross-window journal loss/duplicate mutation. Repair and collect those regressions before claiming the engineering baseline complete. |
 | M1 | **Implemented offline** | Verify rendering, real list/filter/pagination shapes, provider selection, and read-only behavior inside supported Nexus Interface versions against a target node. |
 | M2 | **Partial / host-blocked** | Exact math/codecs and the journal exist, but current Nexus Interface cannot acknowledge durable storage; prove crash/restart, capacity, and profile-switch semantics in the host. |
 | M3 | **Implemented behind gates, offline only** | Exercise both directions with real test tokens, wallet rejection/timeouts, accepted-but-lost responses, and restart without duplicate sends. |
@@ -168,10 +197,11 @@ Status below distinguishes implementation/offline fixtures from target-wallet an
 
 ## Recommended next development batch
 
-1. **Repair hydration:** change `src/reducers/index.js` / `src/configureStore.js` so only reducer-owned roots reach Redux while the full storage object reaches `src/swap/persistence.js`. In `__tests__/configureStore.test.js`, assert no `console.error`, exact `ui/settings/nexus` root keys, exact journal readback, and settings writes that preserve the newest journal. Acceptance command: `npm test -- --ci --runInBand __tests__/configureStore.test.js`, with no unexpected console output.
-2. **Render the workflow:** add a default-collected React suite for `src/App/stablecoinSwap.js` using `runtimeOverride`. Cover complete/incomplete/empty/rejected/failed discovery, immutable-address failure, stale async generations, quote/consent invalidation, blocked storage/deployment, double activation, unmount, observer cleanup, and every recovery action. Rename or retire the source/AST test that currently says “mounted component branch.” Acceptance commands: the new focused Jest path plus `npm run test:swap`, with no unhandled rejection or timer leak.
-3. **Prove the host contract:** build a supported Nexus Interface harness for real `updateStorageAcknowledged`, module installation/open-in-browser behavior, Web Locks, crash/restart, capacity failure, and profile changes. Do not emulate acknowledgement with `Promise.resolve(updateStorage(...))`.
-4. **Prove service/chain behavior:** run M1 read-only target-node acceptance before transfers; close swapService disposition/minimum-policy exits; then run isolated two-direction M3/M4 scenarios with non-production assets and fault injection. Capture exact wallet, node, service, provider-record, and client revisions.
-5. **Control enablement:** add an accepted deployment only after all prior evidence exists. Separately measure and reduce the 1.23 MiB app and 567 KiB signer bundles with compatibility-tested splitting; do not solve size or audit debt through blind dependency upgrades.
+1. **Repair the authoritative journal protocol first:** add failing default-collected versions of the retained two-controller and lost-ack/settings probes. Implement host-owned read/revision/CAS and durable acknowledgement across every writer/context, or isolate the journal from full-snapshot settings writes. Require one mocked wallet mutation for the same job, preservation of both windows’ independent jobs, immutable first remote identity, uncertain-write readback, and identical restart state. A shared Web Lock over private caches or `Promise.resolve(updateStorage(...))` does not pass.
+2. **Repair Redux hydration:** project only reducer-owned `ui/settings/nexus` roots into `src/reducers/index.js` while continuing to hydrate persistence from the untouched storage object. In `__tests__/configureStore.test.js`, assert zero `console.error`, exact root keys, exact journal readback, and settings writes that preserve the newest authoritative journal. Acceptance command: `npm test -- --ci --runInBand __tests__/configureStore.test.js`, with no unexpected console output.
+3. **Render the workflow:** add a default-collected, compatibility-approved React harness for `src/App/stablecoinSwap.js` using `runtimeOverride`; the current installed tree has React but no resolvable ReactDOM/test renderer. Cover complete/incomplete/empty/rejected/failed discovery, immutable-address failure, stale async generations, quote/consent invalidation, blocked storage/deployment, double activation, unmount/timer cleanup, and every recovery action. Rename the source/AST test that currently says “mounted component branch.” Acceptance commands: the focused rendered path and `npm run test:all`, with no unhandled rejection or timer leak.
+4. **Prove the host contract:** test the same persistence protocol in supported Nexus Interface versions with actual module installation, independent windows, real durable acknowledgement/readback, Web Locks, open-in-browser behavior, crash/restart, capacity failure, and profile changes. Do not emulate acknowledgement.
+5. **Prove service/chain behavior:** run M1 read-only target-node acceptance before transfers; close swapService max/dust/finality, receipt, recovery/admission, and disposition exits; then run isolated two-direction M3/M4 scenarios using explicitly authorized non-production assets and fault injection. Capture exact wallet, node, service, provider-record, and client revisions.
+6. **Control enablement:** add an accepted deployment only after all prior evidence exists. Separately measure and reduce the 1.23 MiB app and 567 KiB signer bundles with compatibility-tested splitting; do not solve size or audit debt through blind dependency upgrades.
 
 Treat broader TypeScript conversion, wallet-adapter replacement and dependency upgrades as separate work. Security remediation is intentionally deferred until Nexus Interface compatibility can be demonstrated; no forced audit fix belongs in this plan.

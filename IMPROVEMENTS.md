@@ -21,6 +21,17 @@ corrected, and the artefacts they referred to are listed under
 > does **not** mean funding is release-enabled. Dependency upgrades remain
 > deferred pending Nexus Interface compatibility validation.
 
+## Current bridge priority — 2026-09-23
+
+The [September 23 review](DEVELOPMENT_REVIEW_2026-09-23.md) confirms no DEX implementation
+change after `416855d`. Keep acceptance empty. Repair authoritative multiwindow/uncertain-write
+persistence first; fresh real-controller probes still produce two mocked debit calls and journal
+loss from stale snapshots. Then correct Redux hydration, add collected rendered-component tests,
+and address durable signer handoff, complete max/dust/finality policy, production receipt
+eligibility, and backend recovery/admission. Offline gates remain 41 Jest + 110 swap passes; actual
+wallet rendering/live-chain acceptance is outstanding. Dependency upgrades remain
+compatibility-gated.
+
 ## 1. Code Quality & Maintainability
 
 ### a. Linting and formatting — ✅ Done
@@ -708,34 +719,39 @@ exist in the repository at any commit on this branch:
 
 ---
 
-## Implementation priority — 2026-09-17
+## Implementation priority — 2026-09-23
 
-**Immediate correctness and evidence:**
-1. Remove `swapJournal` from Redux hydration in `src/reducers/index.js` while
-   retaining full persistence hydration in `src/configureStore.js`. Extend
-   `__tests__/configureStore.test.js` to require zero Redux diagnostics, exact
-   `ui/settings/nexus` roots, exact journal preservation, and ordered settings
-   writes.
-2. Add collected rendered tests for `src/App/stablecoinSwap.js` using
-   `runtimeOverride`. Discovery outcomes, stale promises, consent invalidation,
-   blocked funding, double activation, unmount, and recovery controls must be
-   exercised through the UI; source/AST checks do not meet this acceptance.
-3. Add tests for `fetchOrderBook`'s fallback (§22) and `placeOrder` validation.
+**Immediate financial-safety and evidence:**
+1. Add default-collected failing regressions for the real-controller two-window duplicate and the
+   lost-ack/settings overwrite. Replace private hydrate-once authority with host-owned
+   read/revision/CAS and durable acknowledgement across every writer/context, or isolate the
+   journal from legacy full-snapshot settings writes. Require one wallet mutation for one job,
+   no lost jobs/remote identities, and identical restart state.
+2. Remove `swapJournal` from Redux hydration in `src/reducers/index.js` while retaining full
+   persistence hydration in `src/configureStore.js`. Extend `__tests__/configureStore.test.js` to
+   require zero Redux diagnostics, exact `ui/settings/nexus` roots, exact journal preservation,
+   and settings writes that preserve the newest authoritative revision.
+3. Add collected rendered tests for `src/App/stablecoinSwap.js` using `runtimeOverride`. The current
+   AST test does not mount React, and the installed dependency tree has no resolvable ReactDOM/test
+   renderer. Use a Nexus-compatible harness and exercise discovery outcomes, stale promises,
+   consent invalidation, blocked funding, double activation, unmount/timer cleanup, and recovery
+   controls through DOM behavior.
+4. Add tests for `fetchOrderBook`'s fallback (§22) and `placeOrder` validation.
 
 **Release-gate work:**
-4. Prove acknowledged module-storage writes, restart/capacity/profile-switch
-   behavior, and Web Locks in a supported Nexus Interface harness. Keep funding
-   blocked until service policy/disposition exits and both test-network
-   directions pass against exact recorded candidates.
-5. Preserve the compatibility gate: record audit debt, but do not run forced or
-   blind dependency upgrades. Measure bundle reduction separately.
+5. Prove authoritative module-storage writes, independent-window coordination,
+   restart/capacity/profile-switch behavior, and signer handoff in a supported Nexus Interface
+   harness. Keep funding blocked until complete service policy, receipt, recovery/admission and
+   disposition exits pass, followed by both test-network directions against exact candidates.
+6. Preserve the compatibility gate: record audit debt, but do not run forced or blind dependency
+   upgrades. Measure bundle reduction separately.
 
 **Native DEX architecture after the safety exits:**
-6. Add behavior tests around hook dependencies and the five refresh loops, then
-   implement A1/A2/A7 without stale pair/profile updates or repeated dialogs.
-7. Implement A3 before A4 so endpoint projections, normalization, and exact
-   money conversions have one enforceable boundary.
-8. Remove or convert dead `src/components/solanaProvider.js`; then proceed with
+7. Add behavior tests around hook dependencies and the five refresh loops, then implement A1/A2/A7
+   without stale pair/profile updates or repeated dialogs.
+8. Implement A3 before A4 so endpoint projections, normalization, and exact money conversions have
+   one enforceable boundary.
+9. Remove or convert dead `src/components/solanaProvider.js`; then proceed with
    theme/accessibility/responsiveness and the roadmap sequence above.
 
 ## Conclusion

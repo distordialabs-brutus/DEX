@@ -6,7 +6,7 @@ The **Cross-chain swaps** tab replaces the old single-provider prototype. It is 
 
 **Implemented client and opt-in service receipt protocol; funding is not release-enabled.** Discovery, provider inspection, and exact quotes work without an accepted funding deployment. Current Nexus Interface has an additional storage-capability blocker described below. No live transfers, production activation, wallet installation, commits, or pushes are part of this change.
 
-`src/swap/deployment.js` deliberately has an empty `ACCEPTED_DEPLOYMENTS` array. Do not populate it merely because offline tests pass. Existing service-side production blockers, including the previously documented daily-cap bypass, are not repaired by a UI or receipt change.
+`src/swap/deployment.js` deliberately has an empty `ACCEPTED_DEPLOYMENTS` array. Do not populate it merely because offline tests pass. The [2026-09-23 DEX review](../DEVELOPMENT_REVIEW_2026-09-23.md) confirms no runtime change after `416855d` and freshly reproduces the client persistence, Redux hydration and rendered-test gaps. The [cross-repository evaluation](../SWAP_SERVICE_EVALUATION.md) retains the September 22 service-policy/receipt comparison. The earlier blanket daily-cap bypass statement is historical; the latest backend recovery/admission issues still block release.
 
 ## Why a custom Solana wallet is unnecessary
 
@@ -21,6 +21,28 @@ An ordinary wallet **Send** form and a wallet's **dApp signing API** are differe
 | Private-key import or embedded custodial Solana wallet | Not added. It would create unnecessary key storage, backup, signing and custody liabilities. |
 
 References: [Phantom transaction signing](https://docs.phantom.com/solana/sending-a-transaction), [Solana Pay specification](https://docs.solanapay.com/spec), [Solana SPL memo](https://www.solana-program.com/docs/memo).
+
+### Current activation blockers
+
+- Private per-window journal snapshots can defeat a shared Web Lock and submit the same Nexus
+  job twice under an accepted deployment; a lost acknowledgement followed by settings save can
+  erase a committed journal update. September 23 reruns reproduced both paths with real
+  controllers/coordinators and mocked boundaries. Implement authoritative revisioned persistence,
+  not just a promise wrapper.
+- Redux hydration currently admits `swapJournal` as an unknown root, emits three diagnostics in the
+  collected configure-store suite and then discards that Redux key. Keep journal ownership in the
+  persistence coordinator and hydrate Redux from reducer-owned roots only.
+- No collected test mounts `StablecoinSwap`; the test titled “mounted component branch” parses
+  source/AST. Add a Nexus-compatible rendered harness before treating UI wiring as accepted.
+- Current v1 omits maximum inputs and Nexus input dust. Accepted client quotes can lead to a
+  service refund/hold, or a skipped dust-state write under an allowed nondefault configuration.
+- DEX requires receipts for Solana→Nexus, while service production admission rejects receipts
+  enabled. This direction has no currently production-eligible end-to-end configuration.
+- Existing browser-local attempt protection is not wallet-global. Failed browser launch can also
+  leave an `awaiting_signature` job without a safe reopen/cancel route.
+
+These are scoped activation defects/limits, not a claim that the shipped disabled-funding UI
+already sends twice. See the evaluation for real-caller probes, prerequisites and repair exits.
 
 ### Signing companion
 
@@ -88,7 +110,7 @@ The sequential reference alone cannot identify the originating Solana transfer; 
 | `nexus.js` | Real Nexus API payloads and exact source, routing, receipt, DEBIT/CREDIT proof. |
 | `solana.js` | Installed SDK transaction construction, classic SPL account validation and finalized transfer/memo proof. |
 | `jobs.js`, `controller.js` | Scoped immutable journal, serialized intent-first state transitions and no-resubmit recovery. |
-| `persistence.js`, `configureStore.js` | Shared ordered storage coordinator; acknowledged financial writes and compatible legacy settings saves. |
+| `persistence.js`, `configureStore.js` | Per-instance storage coordinator; acknowledged financial writes and legacy settings saves. Authoritative cross-context revisioning and uncertain-write preservation are not yet safe (C-1/C-2). |
 | `runtime.js` | Adapter composition, fresh scope/provider/pair/quote validation and public signing handoff. |
 | `deployment.js` | Static network/genesis allowlist and per-deployment acceptance/dust gates. Never loaded from provider-controlled data. |
 | `signingPage.js`, `dist/solana-sign.html` | Non-custodial external-browser signing surface. |
@@ -122,7 +144,8 @@ Both suites are required. GitHub CI runs them on Node 20, runs both lint gates, 
 
 Before enabling any exact deployment:
 
-- [ ] Implement and validate the acknowledged storage capability in the target Nexus wallet, including restart/crash and size-limit failures.
+- [ ] Implement and validate authoritative revisioned/CAS storage in the target Nexus wallet, including independent windows, uncertain acknowledgement/readback, settings writers, restart/crash and size-limit failures.
+- [ ] Add a default-collected rendered `StablecoinSwap({ runtimeOverride })` suite; source/AST navigation checks are not rendering acceptance.
 - [ ] Verify installed module serving/open-in-browser URLs, browser wallet injection, supported Web Locks, and persisted origins.
 - [ ] Exercise both directions on actual Nexus testnet and Solana devnet/testnet with configured tokens, all fees, minima/dust and sufficient liquidity.
 - [ ] Verify API list/filter/pagination shapes, built-in owner exposure, DEBIT/CREDIT linkage and immutable JSON asset creation on the target node.
