@@ -169,7 +169,7 @@ cancel the non-draft job, and has no safe reopen control.
 
 ### C-7 — Service-side safety gates also block client activation
 
-The latest sibling [evaluation at the reviewed service source](https://github.com/distordialabs-brutus/swapService/blob/85030c890fa6f3bb7db97e068e5cf80827d21b28/docs/EVALUATION.md) documents:
+The [published September 23 sibling evaluation](https://github.com/distordialabs-brutus/swapService/blob/184f5d6a45ecd8f53ae37cfdd09e4b63092d1842/docs/EVALUATION.md), reviewing unchanged service runtime `85030c8`, documents:
 
 - total DB/WAL loss can discard unsent frozen policy/cap intent and reinterpret a recovered deposit;
 - failed registration validation is alert-only, and authoritative network/sync admission is incomplete;
