@@ -1,10 +1,11 @@
 # DEX ↔ swapService bridge functionality and security evaluation
 
-**DEX revalidated 2026-09-23.** DEX `416855d14ab605450bdf4ead92b66ded5e931330`
-remains identical to the prior reviewed runtime and aligned with `origin/master`; there are no
-intervening runtime/test/build/manifest/lockfile/CI changes. The swapService comparison remains the
+**DEX revalidated 2026-09-25.** DEX `master` and `origin/master` are
+`d9ad9da0fb2011c227350c4ff90d8eaac4d657ea`. The two commits after the September 23 runtime baseline
+`416855d14ab605450bdf4ead92b66ded5e931330` change documentation/evidence only; the complete prior
+runtime-source manifest still verifies byte-for-byte. The swapService comparison remains the
 September 22 snapshot at `85030c890fa6f3bb7db97e068e5cf80827d21b28`; it was not represented as a
-fresh service review. See the full [September 23 DEX review](DEVELOPMENT_REVIEW_2026-09-23.md).
+fresh service review. See the full [September 25 DEX review](DEVELOPMENT_REVIEW_2026-09-25.md).
 
 ## Verdict
 
@@ -15,9 +16,10 @@ provider discovery, exact quotes, adapters, job controller and signing companion
 is also not supplied by this repository/installed module SDK. Keep both gates closed.
 
 The highest-risk DEX defect remains **stale per-window journal state**: under a hypothetical
-accepted deployment, two serialized controllers can submit the same job twice. The September 23
+accepted deployment, two serialized controllers can submit the same job twice. The September 25
 rerun reproduced two mocked debit calls and replacement of the first remote identity. It also
-reproduced uncertain journal erasure through a later settings write. Other retained gaps concern
+reproduced uncertain journal erasure through a later settings write and last-writer loss across two
+independent jobs. Other retained gaps concern
 signer-context replay, unadvertised max/dust policy, and production receipt eligibility. These are
 not demonstrations of theft or live transfers in the current build.
 
@@ -91,6 +93,13 @@ Do not call the lost-ack-only fixture a live double-spend exploit.
 **Exit:** separate journal storage from settings replacement, or use one acknowledged, revisioned
 writer for all module data. An uncertain write must block conflicting full-snapshot writes until
 authoritative readback resolves it. Cover rejected, lost and delayed acknowledgements plus restart.
+
+The minimum host contract is an authoritative `{revision, value}` read plus compare-and-swap with a
+durable operation ID and closed committed/conflict/outcome-unknown results. Conflicts may be retried
+only after reread and pure transition recomputation. Unknown commits must be resolved by operation
+identity/content readback or remain held. Every writer must participate, and revisions must survive
+independent windows and restart. This makes the required implementation testable without mistaking a
+shared Web Lock or fulfilled Promise for global durability.
 
 ### C-3 — High conditional policy mismatch: max inputs and Nexus dust are not public terms
 
@@ -167,11 +176,23 @@ cancel the non-draft job, and has no safe reopen control.
   particular, oversized Nexus principal can require operator intervention. No local timeout should
   be labelled refunded without attributable evidence.
 
+### Design context — accountability evidence is additive, not authorization
+
+The untracked `vision.md` supplied for this review is consistent with the fail-closed findings and
+adds a useful future boundary: namespace attestations, bonds, challenge history and risk signals may
+be displayed as inspectable provider evidence, but must not become opaque endorsement badges,
+settlement proof, or a Distordia-controlled execution gate. Preserve exact issuer/namespace, source,
+revision and expiry and label observed, inferred and attested claims separately. This future read-only
+work does not lower C-1 through C-7, establish provider solvency, or justify a deployment acceptance
+record. The file was read without staging or changing it.
+
 ### C-7 — Service-side safety gates also block client activation
 
-The [published September 23 sibling evaluation](https://github.com/distordialabs-brutus/swapService/blob/184f5d6a45ecd8f53ae37cfdd09e4b63092d1842/docs/EVALUATION.md), reviewing unchanged service runtime `85030c8`, documents:
+The parent review subsequently published the [September 25 sibling assessment](https://github.com/distordialabs-brutus/swapService/blob/9f12211811331bae741702757e9d8259a16d55ff/docs/DEVELOPMENT_REVIEW_2026-09-25.md), reviewing service runtime `17f65a3e3b45281162c1604cd0a695a36dc55991`. This updates recovery admission only; the September 22 cross-protocol fixtures above were not rerun against that newer service:
 
-- total DB/WAL loss can discard unsent frozen policy/cap intent and reinterpret a recovered deposit;
+- the empty-custody database latch now closes the exact total-empty-DB/WAL-loss replay path as narrow containment;
+- partial/stale restores with one unrelated retained source can still lose historical authorization and reinterpret a recovered deposit under current policy;
+- other startup refusals can appear healthy on the dashboard, and malformed oldest capacity evidence still blocks younger eligible work;
 - failed registration validation is alert-only, and authoritative network/sync admission is incomplete;
 - several Solana policy/evidence/conflict/unknown-submission holds lack audited resolution;
 - provider-v2 is unwired and receipt enablement remains separately blocked.
@@ -197,25 +218,25 @@ and bundled-code reachability review before release.
 
 | Check | Result |
 |---|---|
-| `npm run test:all` (2026-09-23) | 5 Jest suites / **41 tests**, plus **110 Node swap tests** passed; Jest still emitted three `swapJournal` Redux diagnostics and one expected no-session warning |
-| `npm run lint:swap` / `npm run lint` (2026-09-23) | Strict swap lint passed with zero warnings; repository gate passed with 0 errors / **21 warnings** |
-| `npm run build` (2026-09-23) | Webpack 5.99.9 emitted 1.23 MiB app and 567 KiB signer bundles with 3 performance warnings |
-| Manifest files (2026-09-23) | All **12** entries exist |
-| Journal/controller probes (2026-09-23 rerun) | Serialized stale controllers made **2** mocked debit calls for one job; lost acknowledgement plus settings write erased `submission_unknown`; a stale second coordinator replaced `job-A` with `job-B` |
-| Rendered-test dependency check (2026-09-23) | `react` resolves; `react-dom`, `react-dom/client`, Testing Library and `react-test-renderer` do not. Existing integration test parses source/AST and does not mount React |
+| `npm run test:all` (2026-09-25) | 5 Jest suites / **41 tests**, plus **110 Node swap tests** passed; Jest still emitted three `swapJournal` Redux diagnostics and one expected no-session warning |
+| Focused journal/component checks (2026-09-25) | 3 configure-store tests and a **31-test** persistence/jobs/controller/integration shard passed. The configure-store shard emitted all three diagnostics; the two integration checks inspect source/AST and do not mount React |
+| `npm run lint:swap` / `npm run lint` (2026-09-25) | Strict swap lint passed with zero warnings; repository gate passed with 0 errors / **21 warnings** |
+| `npm run build` (2026-09-25) | Webpack 5.99.9 emitted 1,287,841-byte app and 580,804-byte signer bundles with 3 performance warnings |
+| Manifest files (2026-09-25) | All **12** entries exist |
+| Journal/controller probes (2026-09-25 rerun) | Serialized stale controllers made **2** mocked debit calls for one job; lost acknowledgement plus settings write erased `submission_unknown`; a stale second coordinator replaced `job-A` with `job-B` |
+| Exact-head CI | GitHub Actions run `35822340652` passed all Node 20 install/lint/Jest/swap/lint/build/manifest steps for `d9ad9da` |
 | Ordinary-range service→DEX fixture (2026-09-22) | Real service v1 builder/memo/quote functions agree with client in both directions |
 | Other September 22 mismatch/lifecycle probes | Reproduced isolated signer attempts, max/dust mismatch and receipt admission conflict; not rerun as a new service assessment on September 23 |
-| Source identity | DEX `HEAD` = `origin/master` = `416855d`; runtime/test hashes are recorded in `docs/review_evidence/2026-09-23/runtime-sources.sha256`; the real Git index remained unchanged |
+| Source identity | DEX `HEAD` = `origin/master` = `d9ad9da`; all 36 September 23 runtime/test hashes still verify; September 25 reviewed-source hashes are recorded in `docs/review_evidence/2026-09-25/reviewed-sources.sha256`; the real Git index was not staged |
 | Rendered host / live chains | **Not established**; no credentials, live wallet, RPC, service or chain operations used |
 
 Two independent September 22 reviews, source manifests and diagnostic probes are retained locally
 at `docs/review_evidence/2026-09-22/`; those local-only artifacts are excluded from this publication
 candidate. They are offline diagnostics, not new collected regression tests. Reviewer severity
 labels are scoped/corrected by this consolidated evaluation; the original reports are preserved
-rather than silently edited. The September 23 DEX
-continuity review is [separate dated evidence](DEVELOPMENT_REVIEW_2026-09-23.md), with reviewed
-runtime/test hashes in
-[`docs/review_evidence/2026-09-23/runtime-sources.sha256`](docs/review_evidence/2026-09-23/runtime-sources.sha256).
+rather than silently edited. The September 23 DEX continuity review remains historical evidence. The current
+[September 25 review](DEVELOPMENT_REVIEW_2026-09-25.md) links the reviewed sources, fresh gates and
+preservation boundary.
 
 ## Repair order
 

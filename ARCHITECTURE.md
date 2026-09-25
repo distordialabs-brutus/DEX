@@ -1,18 +1,23 @@
 # DEX architecture
 
-## Current development review — 2026-09-23
+## Current development review — 2026-09-25
 
-The [September 23 review](DEVELOPMENT_REVIEW_2026-09-23.md) revalidates the exact prior DEX
-runtime: `master`, `origin/master`, and the prior review SHA are all
-`416855d14ab605450bdf4ead92b66ded5e931330`, with no intervening runtime, test, build,
-manifest, lockfile, or CI diff. Fresh offline execution again passes 41 Jest + 110 swap tests,
-strict swap lint, repository lint at its 21-warning threshold, both production bundles, and all
-12 manifest files. Funding remains disabled. The real-controller two-window probe still produces
-two mocked debit calls from one stale draft; the lost-ack/settings probe still erases an uncertain
-journal; Redux hydration still emits three unknown-`swapJournal` diagnostics; and no collected test
-mounts the real swap component. The [cross-repository evaluation](SWAP_SERVICE_EVALUATION.md)
-retains the September 22 service comparison and release blockers; the September 23 continuity
-review did not claim a new swapService assessment or perform live wallet/chain actions.
+The [September 25 review](DEVELOPMENT_REVIEW_2026-09-25.md) revalidates `master` and
+`origin/master` at `d9ad9da0fb2011c227350c4ff90d8eaac4d657ea`. The only changes after the
+September 23 runtime baseline `416855d14ab605450bdf4ead92b66ded5e931330` are documentation and
+review evidence; every file in the September 23 runtime-source manifest remains byte-identical.
+Fresh offline execution passes 41 Jest + 110 swap tests, strict swap lint, repository lint at its
+21-warning threshold, both production bundles, and all 12 manifest files. Exact-head GitHub CI is
+also green. These gates still permit three Redux unknown-`swapJournal` diagnostics and do not mount
+the real swap component.
+
+Funding remains disabled. Fresh real-controller/coordinator probes still produce two mocked debit
+calls from one stale draft, erase a committed uncertain journal after a lost acknowledgement plus
+settings save, and lose one of two independently created jobs. The
+[cross-repository evaluation](SWAP_SERVICE_EVALUATION.md) retains the September 22 cross-protocol
+snapshot and adds the parent's September 25 service-recovery reassessment at runtime `17f65a3`:
+total-empty-database replay is contained, while partial-restore authorization remains open.
+No live wallet, service, RPC, signer, or chain action was performed.
 
 ## Historical general review — 2026-09-21
 
@@ -43,11 +48,30 @@ Settings and the cross-chain journal share a per-instance serialized coordinator
 reads a private hydrate-once cache. The current code can erase a newer journal through stale
 settings snapshots after an uncertain acknowledgement, and another window can submit the same
 job from stale draft state even while sharing the Web Lock. See C-1/C-2 in the evaluation.
-The proposed `updateStorageAcknowledged` host method alone cannot repair this protocol. Journal
-faults block new journal writes, but legacy settings writes remain allowed; authoritative
-readback/revision checks or separate storage ownership are required.
 
-One integration debt remains: `storageData.swapJournal` is also merged temporarily into Redux by `src/reducers/index.js`, although `combineReducers` does not own that key. The current Jest run emits Redux's “Unexpected key swapJournal” diagnostic before the key is discarded. The journal itself remains available through the persistence coordinator, but hydration should split reducer-owned state from journal-owned state.
+The repair boundary is wallet-owned storage, not a stronger module-local lock. The supported host
+contract must expose an authoritative value plus monotonic revision, and one compare-and-swap
+commit that returns a closed result: `committed(newRevision)`, `conflict(currentRevision)`, or
+`outcome_unknown(operationId)`. Every settings and journal writer must use that contract, or the
+journal must live in a separate host-owned namespace that settings replacement cannot address.
+On conflict, reread and rerun the pure journal transition before any wallet mutation. On unknown
+outcome, read back by revision/operation identity and compare the intended journal content; if the
+host cannot prove whether it committed, retain a visible storage hold and permit neither a new
+mutation nor a stale full-snapshot write. Revision and operation identity must survive independent
+windows, renderer restart, profile switches and process crashes. A promise-returning wrapper around
+`updateStorage()` does not satisfy this contract.
+
+The module-side transaction should therefore be split into a pure transition over an authoritative
+snapshot and a host commit. `submitNexus` may call `secureApiCall` only after the CAS that moves the
+job from `draft` to `submission_unknown` is proven committed. A second controller must reread that
+revision and refuse submission. Remote-identity persistence must CAS from that exact uncertain row;
+conflicts or lost acknowledgements remain recoverable holds and cannot overwrite the first identity.
+
+One integration debt remains: `storageData.swapJournal` is also merged temporarily into Redux by
+`src/reducers/index.js`, although `combineReducers` does not own that key. The current Jest run emits
+Redux's “Unexpected key swapJournal” diagnostic before the key is discarded. Hydration must first
+pass the untouched host envelope to the journal coordinator, then project only `ui`, `settings` and
+`nexus` into Redux. Redux must never become the journal authority.
 
 ## Native DEX data flow
 
@@ -110,6 +134,20 @@ Do not populate an acceptance record or add a fake promise wrapper around fire-a
 
 The maintained `README.md` now matches the fail-closed implementation: it labels cross-chain use inspection-only, identifies the provider as an intermediary, removes manual funding and fixed-identity guidance, and states that no `SOLANA_RPC_URL` override is supported. Keep that summary synchronized with this architecture and `docs/CROSS_CHAIN_SWAPS.md`; dated reviews that describe the earlier unsafe README are historical evidence, not current instructions.
 
+## Vision alignment and future accountability evidence
+
+The locally supplied `vision.md` was read as design context but remains untracked and was not staged.
+Its safety hierarchy agrees with the current containment: exact identities and integer units,
+wallet-held signing authority, explicit human approval, intent before mutation, attributable
+completion evidence, and fail-closed unknown states. It also clarifies the future trust model.
+Namespace attestations, bonds, challenge history and staked-accountability records may enrich
+provider inspection and risk presentation, but they are evidence—not custody proof, settlement
+proof, or permission to execute. Discovery must remain open, and absence of a Distordia attestation
+must not silently become an execution ban. Any future scoring adapter must preserve raw evidence,
+issuer/namespace identity, observed revision and expiry; labels must identify whether a claim is
+observed, inferred or attested. Funding acceptance remains an explicit, evidence-pinned safety gate
+independent of reputation UI.
+
 ## Build and verification boundaries
 
 - `npm run lint`: repository ESLint gate; errors fail, warnings currently do not.
@@ -119,4 +157,14 @@ The maintained `README.md` now matches the fail-closed implementation: it labels
 - `npm run test:all`: both suites.
 - `npm run build`: emits `dist/js/app.js` and `dist/js/solana-signer.js`.
 
-These are offline regression gates, not live-chain or target-wallet acceptance. They were rerun on 2026-09-23 against the unchanged `416855d` runtime using the existing dependency tree: 41 Jest tests passed; 110 swap tests passed; strict swap lint passed with zero warnings; repository lint passed with 21 warnings; and the production build passed with three performance warnings while emitting a 1.23 MiB app bundle plus a 567 KiB signer bundle. All 12 manifest-listed files existed after the build. No install, audit fix, or dependency upgrade ran. The Jest run again reproduced the known `swapJournal` unknown-root-key diagnostic three times. Rendering and user-interaction coverage for the swap page remains absent; its current “integration” checks parse source/AST rather than mounting the component. The prior 2026-09-21 clean-install coverage and audit counts remain historical evidence, not a fresh September 23 dependency assessment.
+These are offline regression gates, not live-chain or target-wallet acceptance. They were rerun on
+2026-09-25 at `d9ad9da` using the existing dependency tree: 41 Jest tests passed; 110 swap tests
+passed; strict swap lint passed with zero warnings; repository lint passed with 21 warnings; and the
+production build passed with three performance warnings while emitting a 1,287,841-byte app bundle
+plus a 580,804-byte signer bundle. All 12 manifest-listed files existed after the build. No install,
+audit fix, or dependency upgrade ran. The focused 31-test journal/controller/source-wiring shard and
+three configure-store tests also passed, but the latter again emitted the known unknown-root-key
+diagnostic three times. The two component checks read source and traverse the `Main.js` AST; they do
+not render React or drive a DOM. Exact-head GitHub Actions run `35822340652` passed its Node 20
+install, lint, Jest, swap-test, strict-lint, build and manifest steps. None of this establishes
+target-wallet storage, rendering, or live-chain behavior.
