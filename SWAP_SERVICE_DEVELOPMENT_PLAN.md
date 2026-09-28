@@ -1,14 +1,15 @@
 # swapService Client Development Plan
 
-**Date:** 2026-09-07; DEX implementation status re-reviewed 2026-09-25 at `master`/`origin/master` `d9ad9da0fb2011c227350c4ff90d8eaac4d657ea`. Changes after the September 23 runtime baseline `416855d14ab605450bdf4ead92b66ded5e931330` are documentation/evidence only; the reviewed runtime, test, build, manifest and lockfile inputs remain byte-identical. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but authoritative cross-window journal persistence, clean Redux hydration, rendered UI evidence, target-wallet/live-node acceptance, and M5 remain incomplete. **Basis:** [September 25 DEX review](DEVELOPMENT_REVIEW_2026-09-25.md), [cross-repository evaluation](SWAP_SERVICE_EVALUATION.md), and [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). The September 22 cross-protocol comparison is retained; C-7 in the evaluation incorporates the parent's separately published September 25 service-recovery review without claiming new cross-protocol acceptance. Existing Nexus Interface dependency constraints remain in force.
+**Date:** 2026-09-07; DEX implementation status re-reviewed 2026-09-28 at `master`/`origin/master` `19982fbb6af95c79bc1e2414d3d25c24f07657fd`. This is both the requested September 25 baseline and current head: there are no later commits or tracked implementation changes. The baseline itself is documentation/evidence-only relative to runtime `416855d14ab605450bdf4ead92b66ded5e931330`. Its 53-entry reviewed-source manifest passed before this review's documentation edits; the final candidate passes the dedicated 36-file runtime manifest in full, with only the intentionally edited architecture and plan differing from the broader baseline manifest. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but authoritative cross-window journal persistence, clean Redux hydration, rendered UI evidence, target-wallet/live-node acceptance, and M5 remain incomplete. **Basis:** [September 28 DEX review](DEVELOPMENT_REVIEW_2026-09-28.md), [host storage contract](docs/HOST_STORAGE_CONTRACT.md), [cross-repository evaluation](SWAP_SERVICE_EVALUATION.md), and [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). Existing Nexus Interface dependency constraints remain in force; no dependency install or upgrade was performed.
 
-## Current execution order — 2026-09-25
+## Current execution order — 2026-09-28
 
-[September 25 DEX evidence](DEVELOPMENT_REVIEW_2026-09-25.md) confirms no implementation progress
-since the September 23 review. Fresh gates and exact-head CI remain green, but the real-controller
-multiwindow and lost-ack probes still reproduce C-1/C-2, Redux hydration still emits three
-unknown-key diagnostics, and no collected test mounts the swap component. Do not enable funding or
-merely wire a promise-returning host extension.
+[September 28 DEX evidence](DEVELOPMENT_REVIEW_2026-09-28.md) confirms no implementation progress
+after `19982fb`. Fresh gates remain green, but the real-controller multiwindow and lost-ack probes
+still reproduce C-1/C-2, the isolated signer probe still submits twice across separate browser
+namespaces, Redux hydration still emits three unknown-key errors, and no collected test mounts the
+swap component. Keep `ACCEPTED_DEPLOYMENTS` empty. Do not treat a promise-returning host extension,
+Web Lock, source/AST assertion, or prior CI run as closure.
 
 1. **Storage protocol first (C-1/C-2):** reproduce the real-controller two-window duplicate and
    lost-ack/settings journal erasure in default-collected tests. Implement authoritative read,
@@ -32,37 +33,58 @@ merely wire a promise-returning host extension.
 
 ### Batch 1 coder contract — authoritative journal and Redux projection
 
-Implement one wallet-owned storage protocol before changing controller behavior:
+Implement [the host storage contract](docs/HOST_STORAGE_CONTRACT.md) before changing financial
+controller behavior. Its logical API has three operations: authoritative versioned read,
+compare-and-swap commit with `{contextId, expectedRevision, operationId, value}`, and durable
+operation-result readback. Export names may differ, but semantics may not.
 
-1. Add host methods that read `{revision, value}` and compare-and-swap with an explicit operation ID.
-   Results must distinguish committed, revision conflict and acknowledgement/outcome unknown. Persist
-   revisions and operation outcomes outside renderer memory so restart and independent windows see
-   the same authority.
-2. Route **every** writer through that protocol, or move `swapJournal` into a host namespace that
-   settings replacement cannot overwrite. Delete the legacy mixed full-snapshot write path only
-   after migration/readback tests prove older settings and journals are preserved.
-3. Refactor the coordinator into pure `transition(snapshot)` plus authoritative commit/retry. Retry
-   only revision conflicts and always recompute from a fresh snapshot. Never retry an unknown commit;
-   resolve it by operation-ID/content readback or retain a non-sendable storage hold.
-4. Keep `submission_unknown` as the pre-wallet mutation state. The wallet call is reachable only
-   after that CAS is proven committed. Persist a returned remote identity with a second CAS from the
-   exact uncertain revision; a conflict must preserve the first identity and stop.
-5. During `INITIALIZE`, give the complete host envelope to persistence but merge only reducer-owned
-   `ui`, `settings` and `nexus` roots into Redux. Make unexpected `console.error` fail the focused test.
+1. Host commits storage value, next revision and operation receipt atomically and returns
+   `committed`, `conflict` with current authority, or `outcome_unknown`. Reusing one operation ID with
+   identical content returns its original receipt; reuse with different content is an integrity
+   error. `not_committed` is legal only when the host can prove it; pruned/ambiguous receipts are
+   `unknown`.
+2. Route every writer that can address `swapJournal` through CAS, or put settings in a namespace
+   unable to overwrite the journal. Preserve unknown envelope keys. Remove the legacy mixed
+   full-snapshot path only after migration tests preserve old settings and journals under two-window
+   conflict, restart, context switch, capacity rejection and malformed journal input.
+3. Refactor the coordinator into pure `transition(authoritativeSnapshot)` plus bounded CAS retry.
+   Recompute only after conflicts. Reconcile lost/rejected/missing acknowledgement by operation
+   receipt and exact content; an inconclusive result creates a visible non-sendable storage hold.
+4. Keep `submission_unknown` as the pre-wallet mutation state and persist its submission operation
+   ID. `secureApiCall` is reachable only after that exact CAS is proven committed. A second context
+   observing a non-draft state stops without calling the wallet.
+5. Persist a returned txid with a second local-only CAS. An unrelated settings conflict may reread
+   and retry **only that local write** while the same job, submission operation and immutable terms
+   remain unchanged and no txid exists. Never repeat the wallet call. Same txid is idempotent;
+   different txid or changed/missing job retains the first identity and enters operator hold.
+6. During `INITIALIZE`, give the complete host envelope to persistence but merge only reducer-owned
+   `ui`, `settings` and `nexus` roots into Redux. Make unexpected `console.error` fail the focused
+   test; Redux never owns the journal.
 
-Default-collected acceptance must use two real coordinators/controllers and a revisioned fake host:
-same job from two hydrated windows yields one mocked wallet call; two independent jobs both survive;
-lost/rejected/delayed acknowledgement followed by settings save cannot erase uncertainty; first
-remote identity is immutable; conflict retry makes progress; restart and a third context read the
-same revision; capacity and profile/context changes fail closed. Run this batch before rendered-UI
-or signing-handoff work so later tests consume one stable journal contract.
+Default-collected acceptance uses two real coordinators/controllers and a revisioned fake host:
+
+- same job from two hydrated windows: one mocked wallet call and one immutable identity;
+- two independent jobs: both retained after conflict/recompute;
+- settings race before intent and after returned txid: settings and journal both retained, one call;
+- host commit plus lost/delayed/rejected acknowledgement: exact operation readback or a no-send hold;
+- crash after intent/before wallet and after wallet/before txid: restart never automatically resends;
+- repeated operation ID: same payload idempotent, different payload rejected;
+- first identity conflict, capacity/disk/serialization fault, profile/context switch and third-context
+  restart: no overwrite, cross-context write or hidden loss.
+
+Run these tests before rendered-UI or signer-handoff work so later batches consume one stable
+journal contract. The current single-instance and shared-Web-Lock tests remain useful regressions,
+but they do not satisfy this acceptance matrix.
 
 ### Batch 2 coder contract — rendered component evidence
 
-Add a default-collected jsdom renderer compatible with the wallet's React 18 surface. If this needs
-new dev dependencies, pin versions in a separately reviewed compatibility change; do not combine it
-with production dependency upgrades. Mount the real `StablecoinSwap({runtimeOverride})`, drive it
-through DOM events, and assert visible/disabled controls plus calls at the runtime boundary. Cover
+Add a default-collected jsdom renderer compatible with the wallet's actual injected React surface.
+The current lock resolves `nexus-module` 1.1.11; its React and ReactDOM bridge shims are labelled
+19.1.0, while `npm ls react react-dom @testing-library/react react-test-renderer --depth=0` resolves
+none. Choose the supported Nexus Interface version matrix first, then pin test-only React/renderer
+versions matching that host in a separately reviewed lockfile change. Do not combine this with
+production dependency upgrades. Mount the real `StablecoinSwap({runtimeOverride})`, drive it through
+DOM events, and assert visible/disabled controls plus calls at the runtime boundary. Cover
 complete/incomplete/empty/error discovery, address-bound selection failure, quote and consent
 invalidation, storage/deployment blocking, double activation, stale generations, profile/network
 change, every recovery action, and unmount timer cancellation. Rename the current AST test so no
@@ -155,9 +177,9 @@ Do not convert a timeout, missing lookup or changed balance into a terminal refu
 
 Status below distinguishes implementation/offline fixtures from target-wallet and live test-network evidence. A passing mocked suite does not satisfy a live acceptance criterion.
 
-| Milestone | 2026-09-25 status | Remaining exit evidence |
+| Milestone | 2026-09-28 status | Remaining exit evidence |
 |---|---|---|
-| M0 | **Substantially implemented offline** | Existing-tree verification passes 41 Jest + 110 swap tests, both lint gates, build, the 12-file manifest check, and exact-head CI. It also reproduces three Redux diagnostics; no collected test renders the component; and offline real-controller/coordinator probes expose cross-window journal loss/duplicate mutation. Repair and collect those regressions before claiming the engineering baseline complete. |
+| M0 | **Substantially implemented offline** | Existing-tree verification passes 41 Jest + 110 swap tests, both lint gates, build, and the 12-file manifest check. It also reproduces three Redux errors; no collected test renders the component; and offline real-controller/coordinator probes expose cross-window journal loss/duplicate mutation. Exact-head remote CI was not refreshed in this local review. Repair and collect those regressions before claiming the engineering baseline complete. |
 | M1 | **Implemented offline** | Verify rendering, real list/filter/pagination shapes, provider selection, and read-only behavior inside supported Nexus Interface versions against a target node. |
 | M2 | **Partial / host-blocked** | Exact math/codecs and the journal exist, but current Nexus Interface cannot acknowledge durable storage; prove crash/restart, capacity, and profile-switch semantics in the host. |
 | M3 | **Implemented behind gates, offline only** | Exercise both directions with real test tokens, wallet rejection/timeouts, accepted-but-lost responses, and restart without duplicate sends. |
@@ -237,14 +259,40 @@ Status below distinguishes implementation/offline fixtures from target-wallet an
 
 **Exit:** a user can discover a real test provider from a clean client, verify its pair and terms, authorize one transfer, survive restart and obtain exact finalized output evidence—or a truthful durable unresolved state. No real production funds are required for acceptance. Every evidence-dependent label is traceable to its source.
 
-## Recommended next development batch — 2026-09-25
+## Recommended next development batch — 2026-09-28
 
-1. **Repair the authoritative journal protocol first:** add failing default-collected versions of the retained two-controller and lost-ack/settings probes. Implement host-owned read/revision/CAS and durable acknowledgement across every writer/context, or isolate the journal from full-snapshot settings writes. Require one mocked wallet mutation for the same job, preservation of both windows’ independent jobs, immutable first remote identity, uncertain-write readback, and identical restart state. A shared Web Lock over private caches or `Promise.resolve(updateStorage(...))` does not pass.
-2. **Repair Redux hydration:** project only reducer-owned `ui/settings/nexus` roots into `src/reducers/index.js` while continuing to hydrate persistence from the untouched storage object. In `__tests__/configureStore.test.js`, assert zero `console.error`, exact root keys, exact journal readback, and settings writes that preserve the newest authoritative journal. Acceptance command: `npm test -- --ci --runInBand __tests__/configureStore.test.js`, with no unexpected console output.
-3. **Render the workflow:** add a default-collected, compatibility-approved React harness for `src/App/stablecoinSwap.js` using `runtimeOverride`; the current installed tree has React but no resolvable ReactDOM/test renderer. Cover complete/incomplete/empty/rejected/failed discovery, immutable-address failure, stale async generations, quote/consent invalidation, blocked storage/deployment, double activation, unmount/timer cleanup, and every recovery action. Rename the source/AST test that currently says “mounted component branch.” Acceptance commands: the focused rendered path and `npm run test:all`, with no unhandled rejection or timer leak.
-4. **Prove the host contract:** test the same persistence protocol in supported Nexus Interface versions with actual module installation, independent windows, real durable acknowledgement/readback, Web Locks, open-in-browser behavior, crash/restart, capacity failure, and profile changes. Do not emulate acknowledgement.
-5. **Prove service/chain behavior:** run M1 read-only target-node acceptance before transfers; close swapService max/dust/finality, receipt, recovery/admission, and disposition exits; then run isolated two-direction M3/M4 scenarios using explicitly authorized non-production assets and fault injection. Capture exact wallet, node, service, provider-record, and client revisions.
-6. **Control enablement:** add an accepted deployment only after all prior evidence exists. Separately measure and reduce the 1.23 MiB app and 567 KiB signer bundles with compatibility-tested splitting; do not solve size or audit debt through blind dependency upgrades.
+1. **Implement the authoritative host contract first:** use
+   [docs/HOST_STORAGE_CONTRACT.md](docs/HOST_STORAGE_CONTRACT.md) as the acceptance source. Add
+   failing default-collected versions of the retained two-controller and lost-ack/settings probes
+   around a revisioned fake host. Require one wallet mutation, preservation of independent jobs,
+   conflict recomputation, operation-receipt reconciliation, safe local-only txid retry, immutable
+   first identity and identical third-context restart state. A shared Web Lock or
+   `Promise.resolve(updateStorage(...))` does not pass.
+2. **Repair Redux hydration:** project only reducer-owned `ui/settings/nexus` roots into
+   `src/reducers/index.js` while persistence receives the untouched host envelope. In
+   `__tests__/configureStore.test.js`, fail on unexpected `console.error`, assert exact root keys and
+   journal readback, and prove settings cannot overwrite a newer revision. Focused command:
+   `npm test -- --ci --runInBand __tests__/configureStore.test.js`.
+3. **Render the workflow:** choose supported Nexus Interface versions, then pin test-only
+   React/renderer dependencies matching the host in a separate compatibility change. The installed
+   `nexus-module` 1.1.11 shims identify React/ReactDOM 19.1.0, but none is directly resolvable in the
+   repository. Mount `StablecoinSwap({runtimeOverride})`; cover discovery outcomes, immutable-address
+   failure, stale generations, consent invalidation, blocked funding, double activation,
+   profile/network change, all recovery controls and unmount/timer cleanup. Rename the AST test that
+   claims a mounted branch.
+4. **Repair signer handoff only after storage:** coordinate handoff/attempt state through the same
+   wallet-owned authority. Distinguish proven no-attempt from submission unknown, test browser-launch
+   failure and safe reopen, and repeat across isolated storage/lock namespaces with explicit consent.
+5. **Prove the host contract:** run its matrix in supported installed Nexus Interface versions with
+   independent windows, real durable acknowledgement/readback, process termination, restart,
+   capacity failure and profile changes. Keep the wallet financial call mocked during this gate.
+6. **Prove service/chain behavior:** run M1 read-only target-node acceptance before transfers; close
+   swapService max/dust/finality, receipt, recovery/admission and disposition exits; then run isolated
+   two-direction M3/M4 scenarios using explicitly authorized non-production assets and fault
+   injection. Capture exact wallet, node, service, provider-record and client revisions.
+7. **Control enablement:** add an accepted deployment only after all prior evidence exists. Separately
+   measure and reduce the 1.23 MiB app and 567 KiB signer bundles with compatibility-tested splitting;
+   do not solve size or audit debt through blind dependency upgrades.
 
 After these safety and evidence exits, implement vision-aligned provider accountability as a
 read-only adapter: preserve raw namespace/attestation/bond/challenge evidence and its issuer, revision

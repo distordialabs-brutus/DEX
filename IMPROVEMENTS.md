@@ -15,22 +15,22 @@ corrected, and the artefacts they referred to are listed under
 
 > **Review history and current baseline:** independent dated reviews preserve the
 > evidence behind earlier status corrections. The current assessment is
-> [`2026-09-17`](DEVELOPMENT_REVIEW_2026-09-17.md) at `master`/`origin/master`
-> `d07bffc6f900d94206662bd3b3f442fdf2b7f6c2`; its post-source-baseline commit is
-> documentation-only. The separately tested cross-chain client described in §25
-> does **not** mean funding is release-enabled. Dependency upgrades remain
-> deferred pending Nexus Interface compatibility validation.
+> [`2026-09-28`](DEVELOPMENT_REVIEW_2026-09-28.md) at `master`/`origin/master`
+> `19982fbb6af95c79bc1e2414d3d25c24f07657fd`; this is the requested September 25
+> baseline and current head, with no later implementation delta. Dependency
+> upgrades remain deferred pending Nexus Interface compatibility validation.
 
-## Current bridge priority — 2026-09-23
+## Current bridge priority — 2026-09-28
 
-The [September 23 review](DEVELOPMENT_REVIEW_2026-09-23.md) confirms no DEX implementation
-change after `416855d`. Keep acceptance empty. Repair authoritative multiwindow/uncertain-write
-persistence first; fresh real-controller probes still produce two mocked debit calls and journal
-loss from stale snapshots. Then correct Redux hydration, add collected rendered-component tests,
-and address durable signer handoff, complete max/dust/finality policy, production receipt
-eligibility, and backend recovery/admission. Offline gates remain 41 Jest + 110 swap passes; actual
-wallet rendering/live-chain acceptance is outstanding. Dependency upgrades remain
-compatibility-gated.
+The [September 28 review](DEVELOPMENT_REVIEW_2026-09-28.md) freshly revalidates 41 Jest + 110 swap
+passes, both lint gates, both bundles and all 12 manifest files while reproducing the two-controller
+duplicate, lost-ack/settings journal erasure, stale-window lost job and isolated-signer duplicate.
+Funding remains blocked. Implement [the authoritative host storage contract](docs/HOST_STORAGE_CONTRACT.md)
+first: versioned authority, CAS, idempotent operation receipts, unknown-commit readback, safe
+local-only txid persistence and the default-collected two-context fault matrix. Then repair Redux
+projection, add compatibility-pinned rendered tests, coordinate signer handoff, and complete service
+policy/receipt/recovery plus target-wallet/test-network acceptance. Do not populate deployment
+acceptance or apply blind dependency upgrades.
 
 ## 1. Code Quality & Maintainability
 
@@ -719,23 +719,24 @@ exist in the repository at any commit on this branch:
 
 ---
 
-## Implementation priority — 2026-09-23
+## Implementation priority — 2026-09-28
 
 **Immediate financial-safety and evidence:**
-1. Add default-collected failing regressions for the real-controller two-window duplicate and the
-   lost-ack/settings overwrite. Replace private hydrate-once authority with host-owned
-   read/revision/CAS and durable acknowledgement across every writer/context, or isolate the
-   journal from legacy full-snapshot settings writes. Require one wallet mutation for one job,
-   no lost jobs/remote identities, and identical restart state.
-2. Remove `swapJournal` from Redux hydration in `src/reducers/index.js` while retaining full
-   persistence hydration in `src/configureStore.js`. Extend `__tests__/configureStore.test.js` to
-   require zero Redux diagnostics, exact `ui/settings/nexus` roots, exact journal preservation,
-   and settings writes that preserve the newest authoritative revision.
+1. Implement [the authoritative host storage contract](docs/HOST_STORAGE_CONTRACT.md) and add its
+   default-collected revisioned-fake-host matrix around two real coordinators/controllers. Require
+   one wallet mutation for one job, both independent jobs preserved, operation-receipt reconciliation,
+   safe local-only txid conflict retry, immutable first identity and exact restart state. A Web Lock
+   over stale caches or an acknowledgement-only Promise wrapper does not pass.
+2. Remove `swapJournal` from Redux hydration in `src/reducers/index.js` while retaining the untouched
+   envelope for persistence in `src/configureStore.js`. Require zero Redux errors, exact
+   `ui/settings/nexus` roots, exact journal preservation, and settings writes that cannot replace a
+   newer authoritative revision.
 3. Add collected rendered tests for `src/App/stablecoinSwap.js` using `runtimeOverride`. The current
-   AST test does not mount React, and the installed dependency tree has no resolvable ReactDOM/test
-   renderer. Use a Nexus-compatible harness and exercise discovery outcomes, stale promises,
-   consent invalidation, blocked funding, double activation, unmount/timer cleanup, and recovery
-   controls through DOM behavior.
+   AST test does not mount React. Choose supported wallet versions first; installed `nexus-module`
+   1.1.11 labels its injected React/ReactDOM shims 19.1.0, while the repository resolves no direct
+   ReactDOM/test renderer. Pin matching test-only dependencies in a separate compatibility change
+   and exercise discovery, stale promises, consent invalidation, blocked funding, double activation,
+   profile/network changes, recovery controls and timer cleanup through DOM behavior.
 4. Add tests for `fetchOrderBook`'s fallback (§22) and `placeOrder` validation.
 
 **Release-gate work:**

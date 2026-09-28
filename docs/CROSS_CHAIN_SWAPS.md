@@ -6,7 +6,7 @@ The **Cross-chain swaps** tab replaces the old single-provider prototype. It is 
 
 **Implemented client and opt-in service receipt protocol; funding is not release-enabled.** Discovery, provider inspection, and exact quotes work without an accepted funding deployment. Current Nexus Interface has an additional storage-capability blocker described below. No live transfers, production activation, wallet installation, commits, or pushes are part of this change.
 
-`src/swap/deployment.js` deliberately has an empty `ACCEPTED_DEPLOYMENTS` array. Do not populate it merely because offline tests pass. The [2026-09-23 DEX review](../DEVELOPMENT_REVIEW_2026-09-23.md) confirms no runtime change after `416855d` and freshly reproduces the client persistence, Redux hydration and rendered-test gaps. The [cross-repository evaluation](../SWAP_SERVICE_EVALUATION.md) retains the September 22 service-policy/receipt comparison. The earlier blanket daily-cap bypass statement is historical; the latest backend recovery/admission issues still block release.
+`src/swap/deployment.js` deliberately has an empty `ACCEPTED_DEPLOYMENTS` array. Do not populate it merely because offline tests pass. The [2026-09-28 DEX review](../DEVELOPMENT_REVIEW_2026-09-28.md) confirms that the requested `19982fb` baseline is still current and freshly reproduces the client persistence, Redux hydration, signer-isolation and rendered-test gaps. The [authoritative host storage contract](HOST_STORAGE_CONTRACT.md) is the normative repair boundary. The [cross-repository evaluation](../SWAP_SERVICE_EVALUATION.md) retains the September 22 service-policy/receipt comparison. The earlier blanket daily-cap bypass statement is historical; the latest separately reviewed backend recovery/admission issues still block release.
 
 ## Why a custom Solana wallet is unnecessary
 
@@ -67,18 +67,37 @@ Every recovery operation is evidence-based. A bounded empty scan, a balance incr
 
 ## Required Nexus Interface storage capability
 
-Source inspection of Nexus Interface `master` found `updateStorage([data])` calling `writeModuleStorage(activeModule, data)` without awaiting or returning durable completion. The old module SDK's `updateStorage` is a fire-and-forget API. Wrapping it in `Promise.resolve(...)` would manufacture an acknowledgement and is **not safe**.
+Source inspection of the installed `nexus-module` 1.1.11 boundary exposes only
+`updateStorage(data)`, and the reviewed Nexus Interface behavior calls its module storage writer
+without returning a durable versioned result. The current DEX symbol
+`updateStorageAcknowledged(data)` is explicitly a placeholder gate; wrapping `updateStorage` in a
+Promise would manufacture acknowledgement and remains unsafe.
 
-DEX therefore distinguishes ordinary settings saves from the financial journal:
+The normative replacement is [the authoritative host storage contract](HOST_STORAGE_CONTRACT.md),
+not an acknowledgement-only patch. The host must provide:
 
-- Existing settings still use `NEXUS.utilities.updateStorage` and retain legacy behavior.
-- Financial journal writes require the **proposed host extension** `NEXUS.utilities.updateStorageAcknowledged(data)`.
-- That name is an explicit future integration contract, **not a claim that current Nexus Interface or `nexus-module` already provides it**.
-- The host implementation must atomically persist the correct module's full data, enforce its size limit, finish durable filesystem persistence and resolve only then; it must reject errors and avoid success after a module/profile-context switch. Host-side serialization must preserve ordering across modules/windows as appropriate.
-- A resolved `false`, error, missing method, missing Web Locks, storage failure or corrupt journal blocks financial mutation. No unacknowledged fallback funds a swap.
-- The user explicitly limited this task to DEX and swapService; Nexus Interface was not modified or installed.
+- authoritative `{contextId, revision, value}` reads shared by independent windows;
+- atomic compare-and-swap of the complete intended value with an explicit operation ID;
+- durable `committed`, `conflict`, or `outcome_unknown` results plus operation-result readback;
+- idempotent same-operation/same-content replay and rejection of operation-ID content conflicts;
+- crash-durable operation receipts, exact persisted-content hashes, context-switch rejection and
+  pre-commit capacity/serialization failure;
+- either CAS for every settings/journal writer or a separate journal namespace that legacy settings
+  replacement cannot address.
 
-Until this capability is implemented and tested in the target wallet, current wallets remain **inspection-only for new swap jobs**, even if an operator acceptance record were configured. Existing public job data can still be inspected. See [Nexus Interface WebView handler source](https://github.com/Nexusoft/NexusInterface/blob/master/src/shared/lib/modules/webview.js).
+DEX must recompute pure transitions after conflicts, reconcile unknown commits before action, and
+call `secureApiCall` only after the exact `submission_unknown` intent commit is proven. After a
+wallet response, an unrelated settings conflict may retry only the local identity write while the
+same uncertain job remains unchanged; it may never repeat the wallet call. Unknown readback,
+changed job or competing identity remains an operator-visible hold.
+
+A resolved false, missing method, missing Web Locks, storage failure, corrupt journal, ambiguous
+operation receipt or context mismatch blocks financial mutation. Existing settings may retain their
+legacy writer only if the host makes it impossible for that writer to replace the journal namespace.
+Until this contract and its two-window/crash/restart matrix pass in the target wallet, current
+wallets remain inspection-only for new swap jobs, even if an operator acceptance record were
+configured. Existing public job data can still be inspected. See [Nexus Interface WebView handler
+source](https://github.com/Nexusoft/NexusInterface/blob/master/src/shared/lib/modules/webview.js).
 
 ## Service receipt extension
 
@@ -110,7 +129,7 @@ The sequential reference alone cannot identify the originating Solana transfer; 
 | `nexus.js` | Real Nexus API payloads and exact source, routing, receipt, DEBIT/CREDIT proof. |
 | `solana.js` | Installed SDK transaction construction, classic SPL account validation and finalized transfer/memo proof. |
 | `jobs.js`, `controller.js` | Scoped immutable journal, serialized intent-first state transitions and no-resubmit recovery. |
-| `persistence.js`, `configureStore.js` | Per-instance storage coordinator; acknowledged financial writes and legacy settings saves. Authoritative cross-context revisioning and uncertain-write preservation are not yet safe (C-1/C-2). |
+| `persistence.js`, `configureStore.js` | Current per-instance coordinator: acknowledged financial writes and legacy settings saves. It does not satisfy the authoritative cross-context contract in `docs/HOST_STORAGE_CONTRACT.md`; revision/CAS, operation readback and uncertain-write preservation remain absent. |
 | `runtime.js` | Adapter composition, fresh scope/provider/pair/quote validation and public signing handoff. |
 | `deployment.js` | Static network/genesis allowlist and per-deployment acceptance/dust gates. Never loaded from provider-controlled data. |
 | `signingPage.js`, `dist/solana-sign.html` | Non-custodial external-browser signing surface. |
