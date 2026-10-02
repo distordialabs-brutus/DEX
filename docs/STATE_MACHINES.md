@@ -5,16 +5,17 @@ This document contains state machine diagrams for the Distordia DEX Module, illu
 ## Table of Contents
 1. [Application Overview](#application-overview)
 2. [Tab Navigation State Machine](#tab-navigation-state-machine)
-3. [Order Lifecycle State Machine](#order-lifecycle-state-machine)
-4. [Trade Execution State Machine](#trade-execution-state-machine)
-5. [Order Cancellation State Machine](#order-cancellation-state-machine)
-6. [Market Data State Machine](#market-data-state-machine)
-7. [Watchlist State Machine](#watchlist-state-machine)
-8. [NFT Art Creation State Machine](#nft-art-creation-state-machine)
-9. [NFT Tokenization State Machine](#nft-tokenization-state-machine)
-10. [NFT Trading State Machine](#nft-trading-state-machine)
-11. [Chart Features State Machine](#chart-features-state-machine)
-12. [Redux State Structure](#redux-state-structure)
+3. [Cross-chain Swap State Machine](#cross-chain-swap-state-machine)
+4. [Order Lifecycle State Machine](#order-lifecycle-state-machine)
+5. [Trade Execution State Machine](#trade-execution-state-machine)
+6. [Order Cancellation State Machine](#order-cancellation-state-machine)
+7. [Market Data State Machine](#market-data-state-machine)
+8. [Watchlist State Machine](#watchlist-state-machine)
+9. [NFT Art Creation State Machine](#nft-art-creation-state-machine)
+10. [NFT Tokenization State Machine](#nft-tokenization-state-machine)
+11. [NFT Trading State Machine](#nft-trading-state-machine)
+12. [Chart Features State Machine](#chart-features-state-machine)
+13. [Redux State Structure](#redux-state-structure)
 
 ---
 
@@ -32,17 +33,48 @@ The DEX application uses Redux for state management with the following main stat
 ## Tab Navigation State Machine
 
 ```text
-Visible states: Overview | Trade | Chart | MarketDepth | Markets | Portfolio | NFTArt
+Visible states: Overview | Trade | Chart | MarketDepth | Markets | Portfolio | NFTArt | StablecoinSwap
 Initial state: Overview
 Trigger: switchTab(tab) action
-Disabled prototype: StablecoinSwap (tab and render route both commented out)
 ```
 
-The cross-chain prototype has no durable swap state machine in Redux; its local React state
-and polling must not be interpreted as completed provider discovery or reliable settlement.
-See the [focused evaluation](../SWAP_SERVICE_EVALUATION.md) and
-[proposed swap job states and milestones](../SWAP_SERVICE_DEVELOPMENT_PLAN.md).
-The proposed job states are a development target, not implemented navigation or recovery.
+The Cross-chain swaps tab is live for provider inspection, exact quotes and recovery. Funding remains
+disabled by the empty deployment-acceptance registry and missing authoritative host-storage/mutation
+contract. Its durable swap journal intentionally is not a Redux root; the current per-instance
+module-storage coordinator does not yet satisfy cross-window revision/CAS requirements. See the
+[focused evaluation](../SWAP_SERVICE_EVALUATION.md), [host contract](HOST_STORAGE_CONTRACT.md), and
+[development plan](../SWAP_SERVICE_DEVELOPMENT_PLAN.md).
+
+---
+
+## Cross-chain Swap State Machine
+
+Implemented offline states:
+
+```text
+Solana → Nexus:
+  draft → awaiting_signature → awaiting_payout → completed
+
+Nexus → Solana:
+  draft → submission_unknown → debit_submitted
+        → awaiting_service_credit → mapping_unknown
+        → awaiting_payout → completed
+
+Pre-funding terminal state:
+  draft → cancelled
+```
+
+`submission_unknown` and `mapping_unknown` are durable nonterminal holds. A timeout, missing identity,
+or bounded empty lookup never authorizes resubmission, refund, or completion. Only `draft` may be
+cancelled. Jobs freeze profile/network/provider scope, exact integer-unit quote terms, accounts,
+reference, expiry and finality policy before mutation.
+
+The implementation is not globally at-most-once across windows yet. Each coordinator hydrates a
+private snapshot, so a shared Web Lock can serialize stale decisions; legacy settings replacement
+can erase an uncertain journal; and ordinary `secureApiCall` cannot bind dispatch to the context of
+the committed intent. Funding remains unavailable until the wallet implements authoritative
+revision/CAS storage, durable operation receipts, settings isolation and a context-bound one-shot
+mutation, and the default-collected two-context fault matrix passes.
 
 ---
 

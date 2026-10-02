@@ -1,33 +1,44 @@
 # DEX architecture
 
-## Current development review — 2026-09-28
+## Current development review — 2026-10-02
 
-The [September 28 review](DEVELOPMENT_REVIEW_2026-09-28.md) revalidates `master` and
-`origin/master` at `19982fbb6af95c79bc1e2414d3d25c24f07657fd`, the requested September 25
-baseline and current head. There are no commits or tracked implementation changes after that
-baseline. The commit itself is documentation/evidence-only relative to runtime baseline
-`416855d14ab605450bdf4ead92b66ded5e931330`. Its 53-entry reviewed-source manifest passed before
-this review's documentation edits; the final candidate still passes the dedicated 36-file runtime
-manifest in full, with only the intentionally edited architecture and plan differing from the
-broader baseline manifest. The pre-existing untracked September 22 evidence and `vision.md` were
-hash-checked and preserved.
+The [October 2 review](DEVELOPMENT_REVIEW_2026-10-02.md) revalidates `master` and
+`origin/master` at the requested baseline and current head
+`94d82a7adf258dbb08fe3a62668373a1d8339d67`. The range `94d82a7..HEAD` is empty: there is no
+accepted coding progress after the baseline. That baseline itself changes maintained Markdown only
+relative to its parent, and the complete runtime delta from
+`416855d14ab605450bdf4ead92b66ded5e931330` remains Markdown/SHA-256 evidence only. The dedicated
+36-file runtime manifest passes in full.
 
-Fresh offline execution passes 41 Jest + 110 swap tests, strict swap lint, repository lint at its
-21-warning threshold, both production bundles, and all 12 manifest files. The Jest gate still emits
-three Redux unknown-`swapJournal` errors and no default-collected test renders the real swap
-component. Installed `nexus-module` 1.1.11 supplies wallet-global React/ReactDOM shims labelled
-19.1.0, while the repository has no directly resolvable React or ReactDOM package; a rendered test
-harness therefore remains a separate compatibility-pinned dependency decision.
+Fresh offline execution passes the complete configured gates: 5 Jest suites / 41 tests with
+coverage, 110 swap tests, strict swap lint, repository lint at 0 errors / 21 warnings, both
+production bundles, all 12 manifest-file checks, and all 36 runtime-source hashes. The focused
+state-machine shard passes 31 tests and the focused store shard passes 3 tests. Those green results
+do not close the architecture exits: Jest still emits three Redux unknown-`swapJournal` errors, and
+no default-collected test renders the real swap component. Installed dependencies still expose no
+direct React, ReactDOM, Testing Library or test renderer, so a rendered harness remains a separate
+compatibility-pinned dependency decision.
 
 Funding remains disabled by the empty accepted-deployment registry and absent authoritative host
-storage. Fresh real-controller/coordinator probes still produce two mocked debit calls from one
-stale draft, erase a committed uncertain journal after lost acknowledgement plus a settings save,
-and lose one of two independently created jobs. The isolated signer probe also submits the same
-mocked handoff twice from separate browser storage/lock namespaces. No live wallet, service, RPC,
-signer, or chain action was performed. The normative coder boundary is now explicit in
-[the authoritative host storage contract](docs/HOST_STORAGE_CONTRACT.md): host-owned revision/CAS,
-idempotent operation receipts, authoritative unknown-commit reconciliation, safe local-only remote
-identity persistence, migration, and a default-collected two-context fault matrix.
+storage. Fresh retained probes still produce two mocked debit calls from one stale draft, erase a
+committed uncertain journal after lost acknowledgement plus a settings save, lose one of two
+independently created jobs, and submit one signer handoff twice across isolated browser namespaces.
+A fresh real-controller probe changes the active profile during asynchronous funding validation:
+the mocked debit is called once under the changed scope, then the existing post-call scope check
+rejects and leaves the original job `submission_unknown` without the returned identity. No live
+wallet, service, RPC, signer, or chain action was performed.
+
+Accepted progress is therefore design and evidence only: the maintained host contract now defines
+revision/CAS authority, durable operation receipts, uncertain-acknowledgement reconciliation,
+settings isolation, immutable first remote identity, and a separate context-bound one-shot wallet
+mutation with a two-context fault matrix. None of those host/runtime semantics is implemented in
+this repository or accepted in Nexus Interface.
+
+The refined [host contract](docs/HOST_STORAGE_CONTRACT.md) now distinguishes two requirements:
+host-owned revision/CAS storage with durable operation receipts, and a separate context-bound,
+durably claimed one-shot wallet mutation tied to the committed intent. The latter is a host/SDK
+capability, not a DEX-only scope recheck. Plain `secureApiCall(endpoint, params)` has no context or
+intent identity and cannot close a profile switch racing host dispatch.
 
 ## Historical general review — 2026-09-21
 
@@ -75,15 +86,22 @@ stale full-snapshot write. Revision, context and operation identity must survive
 windows, renderer restart, profile switches and process crashes. A promise-returning wrapper around
 `updateStorage()` does not satisfy this contract.
 
+Storage commit authority alone does not bind the subsequent wallet mutation to the same active
+profile. The host must durably claim a unique invocation and execute the exact endpoint/parameters
+against the context of the committed `submission_unknown` operation. A duplicate/restarted caller
+must observe the existing invocation result or uncertainty without another dispatch. The DEX must
+also reread scope after asynchronous funding validation and before committing intent, but that read
+only narrows the race; it is not a substitute for host-side context binding through dispatch.
+
 The module transaction is split into a pure transition over an authoritative snapshot and a host
-commit. `submitNexus` may call `secureApiCall` only after the CAS that moves the exact job from
-`draft` to `submission_unknown` is proven committed. A second controller must reread that revision
-and refuse submission. After the wallet returns, persistence of the first remote identity is a
-local-only CAS: an unrelated settings conflict may be reread and retried only while the same job,
-submission operation and immutable terms remain unchanged and no identity is present. The wallet
-call itself is never retried. The same already-persisted identity is idempotent; a different
-identity, changed/missing job or unknown commit becomes an operator-visible hold and cannot
-overwrite the first identity.
+commit. `submitNexus` may invoke the wallet only through the context-bound one-shot handoff after the
+CAS that moves the exact job from `draft` to `submission_unknown` is proven committed. A second
+controller must reread that revision and refuse submission. After the wallet returns, persistence of
+the first remote identity is a local-only CAS: an unrelated settings conflict may be reread and
+retried only while the same job, submission operation and immutable terms remain unchanged and no
+identity is present. The wallet call itself is never retried. The same already-persisted identity is
+idempotent; a different identity, changed/missing job or unknown commit becomes an operator-visible
+hold and cannot overwrite the first identity.
 
 One integration debt remains: `storageData.swapJournal` is also merged temporarily into Redux by
 `src/reducers/index.js`, although `combineReducers` does not own that key. The current Jest run emits
@@ -144,7 +162,7 @@ Unknown states are durable holds, never inferred refunds. Only `draft` can be ca
 Cross-chain discovery, inspection, and quote calculation are exposed, but funding is not release-enabled:
 
 - `src/swap/deployment.js` keeps `ACCEPTED_DEPLOYMENTS` empty;
-- current Nexus Interface lacks acknowledged module-storage writes;
+- current Nexus Interface lacks acknowledged versioned module-storage writes and context-bound one-shot mutation;
 - no target-wallet installation, real node, Solana cluster, browser-wallet, restart, or service acceptance has been completed by the offline suites;
 - an on-chain provider record is not an endorsement or solvency proof.
 
@@ -152,13 +170,12 @@ Do not populate an acceptance record or add a fake promise wrapper around fire-a
 
 The maintained `README.md` now matches the fail-closed implementation: it labels cross-chain use inspection-only, identifies the provider as an intermediary, removes manual funding and fixed-identity guidance, and states that no `SOLANA_RPC_URL` override is supported. Keep that summary synchronized with this architecture and `docs/CROSS_CHAIN_SWAPS.md`; dated reviews that describe the earlier unsafe README are historical evidence, not current instructions.
 
-## Vision alignment and future accountability evidence
+## Future accountability evidence
 
-The locally supplied `vision.md` was read as design context but remains untracked and was not staged.
-Its safety hierarchy agrees with the current containment: exact identities and integer units,
-wallet-held signing authority, explicit human approval, intent before mutation, attributable
-completion evidence, and fail-closed unknown states. It also clarifies the future trust model.
-Namespace attestations, bonds, challenge history and staked-accountability records may enrich
+The future trust model should preserve the current safety hierarchy: exact identities and integer
+units, wallet-held signing authority, explicit human approval, intent before mutation, attributable
+completion evidence, and fail-closed unknown states. Namespace attestations, bonds, challenge
+history and staked-accountability records may enrich
 provider inspection and risk presentation, but they are evidence—not custody proof, settlement
 proof, or permission to execute. Discovery must remain open, and absence of a Distordia attestation
 must not silently become an execution ban. Any future scoring adapter must preserve raw evidence,
@@ -176,12 +193,12 @@ independent of reputation UI.
 - `npm run build`: emits `dist/js/app.js` and `dist/js/solana-signer.js`.
 
 These are offline regression gates, not live-chain or target-wallet acceptance. They were rerun on
-2026-09-28 at `19982fb` using the unchanged existing dependency tree: 41 Jest tests and all 110
-reported Node subtests passed; strict swap lint passed with zero warnings; repository lint passed
-with 21 warnings; and the production build passed with three performance warnings while emitting a
-1,287,841-byte app bundle plus a 580,804-byte signer bundle. All 12 manifest-listed files existed
-after the build. No install, audit fix, or dependency upgrade ran. The Jest run again emitted three
-Redux unknown-root-key diagnostics, and the two component checks still read source/traverse the
-`Main.js` AST rather than render React or drive a DOM. Fresh exact-head remote CI was not queried in
-this documentation-only local review; prior exact-head CI evidence remains historical. None of this
-establishes target-wallet storage, rendering, or live-chain behavior.
+2026-10-02 at `94d82a7` using the unchanged existing dependency tree: 41 Jest tests with coverage
+and all 110 reported Node subtests passed; strict swap lint passed with zero warnings; repository
+lint passed with 21 warnings; both bundles built with three performance warnings; all 12 manifest
+paths and 36 runtime hashes passed. No install, audit fix, or dependency upgrade ran. The Jest run
+again emitted three Redux unknown-root-key diagnostics, and the two component checks still read
+source/traverse the `Main.js` AST rather than render React or drive a DOM. Fresh exact-head remote CI
+was not queried in this documentation-only local review; prior exact-head CI evidence remains
+historical. None of this establishes target-wallet storage, rendering, host-bound mutation, or
+live-chain behavior.

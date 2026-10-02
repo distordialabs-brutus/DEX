@@ -1,6 +1,6 @@
 # Authoritative host storage contract for swap journals
 
-**Status:** required design contract; not implemented by the current DEX client, `nexus-module` 1.1.11, or the reviewed Nexus Interface boundary. Funding must remain disabled until the target wallet implements and passes this contract.
+**Status:** required design contract; not implemented by the current DEX client, `nexus-module` 1.1.11, or the reviewed Nexus Interface boundary. Funding must remain disabled until the target wallet implements and passes both the versioned storage contract and the context-bound mutation handoff below.
 
 This contract governs the financial journal used by the cross-chain client. It is intentionally stronger than `NEXUS.utilities.updateStorage(data)`, which is a fire-and-forget full-snapshot write. A resolved Promise wrapper around that API does not satisfy this contract.
 
@@ -12,7 +12,7 @@ The required sequence is:
 
 ```text
 authoritative read -> pure transition -> compare-and-swap commit
--> prove commit -> invoke wallet at most once
+-> prove commit -> context-bound one-shot wallet invocation
 -> compare-and-swap remote identity -> reconcile or hold
 ```
 
@@ -53,6 +53,57 @@ readModuleStorageOperation(contextId: string, operationId: string): Promise<Oper
 
 A rejected call, missing response, malformed response, renderer termination, or context change is treated by the module as `outcome_unknown`; it is never silently converted to `conflict` or `not_committed`.
 
+## Separate required host capability: context-bound mutation handoff
+
+Versioned storage proves that an intent was committed. It does not by itself prove which wallet
+profile/session executes a later `secureApiCall`. The current bridge accepts no `contextId`, storage
+operation ID, or one-shot invocation identity. A module-side scope read immediately before the call
+narrows the race but cannot prevent the active profile from changing between that read and host
+dispatch.
+
+The wallet/SDK must therefore expose a logical mutation operation equivalent to:
+
+```ts
+type CommittedMutationRequest = {
+  contextId: string;
+  intentOperationId: string; // committed submission_unknown transition
+  invocationId: string;      // globally unique, stable for this one attempted invocation
+  endpoint: string;
+  params: unknown;
+};
+
+type CommittedMutationResult =
+  | { status: 'returned'; invocationId: string; response: unknown }
+  | { status: 'rejected_before_invocation'; invocationId: string; reason: string }
+  | { status: 'outcome_unknown'; invocationId: string };
+
+secureApiCallForCommittedIntent(
+  request: CommittedMutationRequest
+): Promise<CommittedMutationResult>;
+```
+
+Names are non-normative; these semantics are mandatory:
+
+1. The host verifies that `intentOperationId` is a committed receipt in `contextId`, that its exact
+   persisted intent remains current, and that endpoint/parameters match that intent.
+2. The host binds the PIN prompt and API dispatch to that exact wallet/profile/session context. It
+   either prevents a context switch through dispatch or resolves the call against the already-bound
+   context; a mutable process-global “currently active profile” is not authority.
+3. The host durably claims exactly one `invocationId` for `intentOperationId` before dispatch. That
+   intent may reach the remote boundary at most once. A duplicate caller, renderer restart, delayed
+   response, repeated `invocationId`, or fresh competing invocation ID reads/conflicts with the
+   existing claim/result and never dispatches again.
+4. `rejected_before_invocation` is returned only when the host can prove dispatch did not start.
+   Crash, timeout, missing/malformed response, lost acknowledgement, or an unavailable invocation
+   receipt is `outcome_unknown` and is never retried automatically.
+5. A returned remote identity is immutable evidence. The DEX persists it with the local-only CAS
+   rule below; a different later identity is a conflict, not replacement authority.
+
+This is a host capability, not a DEX-only code repair. The DEX must still reread scope after
+asynchronous funding validation and before committing intent, and must pass the committed context,
+intent operation, invocation identity, endpoint and exact parameters to this handoff. Plain
+`secureApiCall(endpoint, params)` cannot satisfy the profile-switch acceptance case.
+
 ## Host invariants
 
 1. **Authoritative read.** `readModuleStorageVersioned` reads host-owned current state, not a renderer cache. All windows reading one `contextId` observe the same revision sequence.
@@ -82,7 +133,13 @@ Retry is bounded. Repeated conflicts end in a visible storage hold; they do not 
 2. Generate one submission operation ID and include it in the job transition to `submission_unknown`.
 3. CAS that complete transition. On `conflict`, recompute from the fresh snapshot. If another context already moved the job out of `draft`, stop without invoking the wallet.
 4. On a missing/unknown acknowledgement, query the operation and reread authority. Proceed only if the host proves that the intended operation committed and the exact immutable job is `submission_unknown` with the same submission operation ID. Otherwise retain a visible non-sendable storage hold.
-5. Only the original, uninterrupted controller invocation that won this submission CAS may call `secureApiCall` after step 4, and only if it has not already invoked the wallet. A host receipt proves a storage commit, not whether the wallet was called. Restart, a second controller, or a recovered operation ID must never regain send authority from that receipt. A thrown error, timeout, malformed response, or missing txid leaves `submission_unknown` and is never automatically retried.
+5. Only the original, uninterrupted controller invocation that won this submission CAS may call the
+   context-bound one-shot mutation handoff after step 4. It supplies a fresh invocation ID tied to
+   the committed intent. A host storage receipt alone is not send authority. Restart, a second
+   controller, or a recovered operation ID must never regain send authority; the host invocation
+   claim is defense in depth against any such caller. A rejected-before-invocation result may remain
+   explicitly non-submitted; a thrown error, timeout, malformed response, missing txid, context
+   ambiguity, or `outcome_unknown` leaves `submission_unknown` and is never automatically retried.
 6. Record the returned txid with a second operation ID. If an unrelated settings/job commit causes a CAS conflict, reread and retry this **local identity write only** when the same job remains at the same submission operation, has no remote identity, and all immutable terms match. Do not call `secureApiCall` again.
 7. If the same txid is already present, treat identity persistence as idempotently complete. If a different txid, changed job, missing job, changed context, or ambiguous storage operation is observed, retain both known facts in an operator-visible hold and never overwrite the first identity.
 
@@ -128,7 +185,8 @@ Tests must use two real `createModulePersistence`/job-store/controller instances
 | Crash after remote acceptance, before txid commit | Restart remains non-sendable; exact proof can recover; automatic resend is impossible. |
 | First identity already present, second differs | First identity is immutable; job enters visible operator hold. |
 | Capacity/serialization/disk failure | Prior revision remains exact; no wallet call. |
-| Profile/context switch during read/commit/call | Commit or action is rejected; no cross-context write or wallet call. |
+| Profile/context switch during validation/read/commit/call | DEX pre-commit reread rejects an observed change; the host-bound handoff proves no wrong-context wallet call even when the switch races dispatch. |
+| Duplicate/restarted mutation invocation | One claim per intent operation; at most one mocked wallet call even with fresh competing invocation IDs; every duplicate/restart observes returned or unknown state and cannot dispatch. |
 | Third context after restart | Reads the same revision, jobs, uncertainty, and operation receipts. |
 | Redux initialization with journal present | State has exactly `ui/settings/nexus`; persistence reads the exact journal; no unexpected console output. |
 
@@ -136,6 +194,6 @@ The regression titles must name the real boundary. The existing single-instance 
 
 ## Target-wallet acceptance
 
-After fake-host tests pass, repeat the matrix in each supported Nexus Interface version with an installed production module. Capture exact wallet, `nexus-module`, DEX, and test-harness revisions. Exercise independent windows, process termination, restart, profile switch, capacity rejection, and a host commit followed by a deliberately lost renderer acknowledgement. Inspect the persisted target and operation receipt after every injected fault.
+After fake-host tests pass, repeat the matrix in each supported Nexus Interface version with an installed production module. Capture exact wallet, `nexus-module`, DEX, and test-harness revisions. Exercise independent windows, process termination, restart, profile switch before and during the one-shot invocation, capacity rejection, and a host commit followed by a deliberately lost renderer acknowledgement. Inspect the persisted target, storage receipt, invocation claim/result, and active/bound wallet context after every injected fault.
 
 No live financial call is needed to validate storage: the wallet mutation remains mocked until the storage contract passes. Funding acceptance and test-network settlement are later gates.

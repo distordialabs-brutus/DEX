@@ -1,21 +1,27 @@
 # swapService Client Development Plan
 
-**Date:** 2026-09-07; DEX implementation status re-reviewed 2026-09-28 at `master`/`origin/master` `19982fbb6af95c79bc1e2414d3d25c24f07657fd`. This is both the requested September 25 baseline and current head: there are no later commits or tracked implementation changes. The baseline itself is documentation/evidence-only relative to runtime `416855d14ab605450bdf4ead92b66ded5e931330`. Its 53-entry reviewed-source manifest passed before this review's documentation edits; the final candidate passes the dedicated 36-file runtime manifest in full, with only the intentionally edited architecture and plan differing from the broader baseline manifest. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but authoritative cross-window journal persistence, clean Redux hydration, rendered UI evidence, target-wallet/live-node acceptance, and M5 remain incomplete. **Basis:** [September 28 DEX review](DEVELOPMENT_REVIEW_2026-09-28.md), [host storage contract](docs/HOST_STORAGE_CONTRACT.md), [cross-repository evaluation](SWAP_SERVICE_EVALUATION.md), and [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). Existing Nexus Interface dependency constraints remain in force; no dependency install or upgrade was performed.
+**Date:** 2026-09-07; DEX implementation status re-reviewed 2026-10-02 at `master`/`origin/master` `94d82a7adf258dbb08fe3a62668373a1d8339d67`. There are no commits or tracked implementation changes after that requested baseline, which is itself documentation-only relative to runtime `416855d14ab605450bdf4ead92b66ded5e931330`. The dedicated 36-file runtime manifest still passes in full. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but authoritative cross-window journal persistence, context-bound one-shot wallet mutation, clean Redux hydration, rendered UI evidence, target-wallet/live-node acceptance, and M5 remain incomplete. Accepted progress since the runtime baseline is limited to the versioned host contract, durable-operation/uncertain-acknowledgement semantics, settings isolation, immutable-identity rules, and an executable two-context acceptance matrix; these are design requirements, not implemented host capability. **Basis:** [October 2 DEX review](DEVELOPMENT_REVIEW_2026-10-02.md), [host storage and mutation-handoff contract](docs/HOST_STORAGE_CONTRACT.md), [current cross-repository evaluation](SWAP_SERVICE_EVALUATION.md), and [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). Existing Nexus Interface dependency constraints remain in force; no dependency install or upgrade was performed.
 
-## Current execution order — 2026-09-28
+## Current execution order — 2026-10-02
 
-[September 28 DEX evidence](DEVELOPMENT_REVIEW_2026-09-28.md) confirms no implementation progress
-after `19982fb`. Fresh gates remain green, but the real-controller multiwindow and lost-ack probes
-still reproduce C-1/C-2, the isolated signer probe still submits twice across separate browser
-namespaces, Redux hydration still emits three unknown-key errors, and no collected test mounts the
-swap component. Keep `ACCEPTED_DEPLOYMENTS` empty. Do not treat a promise-returning host extension,
-Web Lock, source/AST assertion, or prior CI run as closure.
+The October 2 review confirms no implementation progress after `94d82a7`. Fresh gates remain green
+(41 Jest tests with coverage, 110 swap tests, both lint gates, build, manifest and runtime hashes),
+but the real-controller multiwindow and lost-ack probes still reproduce C-1/C-2, the isolated signer
+probe still submits twice across separate browser namespaces, Redux hydration still emits three
+unknown-key errors, and no collected test mounts the swap component. A fresh real-controller probe
+also changes the active profile during asynchronous funding validation: the mocked debit is invoked
+once under the changed scope, and only the post-call scope check leaves `submission_unknown`. Keep
+`ACCEPTED_DEPLOYMENTS` empty. Do not treat a promise-returning host extension, Web Lock, pre-call
+module read, source/AST assertion, or prior CI run as closure.
 
-1. **Storage protocol first (C-1/C-2):** reproduce the real-controller two-window duplicate and
+1. **Host journal and invocation protocol first (C-1/C-2/C-7):** reproduce the real-controller two-window duplicate and
    lost-ack/settings journal erasure in default-collected tests. Implement authoritative read,
    revision/CAS and acknowledged updates across every module writer/context, or separate journal
    ownership. Require one remote call for the same job and preservation of both windows’ jobs,
-   remote IDs and uncertain states through restart. Correct Redux hydration without moving the
+   remote IDs and uncertain states through restart. Add a host-owned context-bound one-shot mutation
+   handoff tied to the committed intent; ordinary `secureApiCall(endpoint, params)` cannot close a
+   profile switch racing dispatch. The host permits one invocation claim per intent operation, not
+   merely one call per caller-chosen invocation ID. Correct Redux hydration without moving the
    journal into reducer ownership.
 2. **Signing handoff (C-5):** coordinate attempts with durable wallet-owned state across contexts;
    distinguish no-attempt handoff from unknown submission and verified source. Test browser-launch
@@ -23,7 +29,7 @@ Web Lock, source/AST assertion, or prior CI run as closure.
 3. **Complete service policy (C-3/C-6):** publish and freeze max inputs, Nexus dust and actual
    finality; guard dust/minimum configuration and retain positive custody obligations. Shared
    fixtures must reject below/exact/above boundary mismatches before funding.
-4. **Receipt and backend acceptance (C-4/C-7):** close the receipt-enabled production-startup
+4. **Receipt and backend acceptance (C-4/C-8):** close the receipt-enabled production-startup
    contradiction without weakening source-bound proof. Repair backend total-loss authorization,
    admission and operator-resolution gates. The minimum classifier and typed cap holds already
    exist; their unsent DB-loss boundary is the reopened defect.
@@ -31,12 +37,14 @@ Web Lock, source/AST assertion, or prior CI run as closure.
    durable storage and test-network settlement with exact candidate identities before M5.
    Keep compatibility-controlled dependency work separate; no forced audit fixes.
 
-### Batch 1 coder contract — authoritative journal and Redux projection
+### Batch 1 coder contract — authoritative journal, bound mutation and Redux projection
 
 Implement [the host storage contract](docs/HOST_STORAGE_CONTRACT.md) before changing financial
-controller behavior. Its logical API has three operations: authoritative versioned read,
+controller behavior. Its storage API has three operations: authoritative versioned read,
 compare-and-swap commit with `{contextId, expectedRevision, operationId, value}`, and durable
-operation-result readback. Export names may differ, but semantics may not.
+operation-result readback. A separate required host operation binds the committed intent and a
+durably claimed one-shot invocation ID to the exact wallet/profile context, endpoint and parameters.
+Export names may differ, but semantics may not.
 
 1. Host commits storage value, next revision and operation receipt atomically and returns
    `committed`, `conflict` with current authority, or `outcome_unknown`. Reusing one operation ID with
@@ -51,8 +59,12 @@ operation-result readback. Export names may differ, but semantics may not.
    Recompute only after conflicts. Reconcile lost/rejected/missing acknowledgement by operation
    receipt and exact content; an inconclusive result creates a visible non-sendable storage hold.
 4. Keep `submission_unknown` as the pre-wallet mutation state and persist its submission operation
-   ID. `secureApiCall` is reachable only after that exact CAS is proven committed. A second context
-   observing a non-draft state stops without calling the wallet.
+   ID. Reread wallet/network scope after asynchronous funding validation and before committing that
+   intent. The wallet mutation is reachable only after the exact CAS is proven committed and only
+   through a host operation that binds `contextId`, intent operation ID, fresh invocation ID,
+   endpoint and parameters. A second context or restarted caller cannot acquire send authority from
+   a storage receipt. A profile switch racing dispatch is rejected before invocation or becomes an
+   attributable unknown result without retry.
 5. Persist a returned txid with a second local-only CAS. An unrelated settings conflict may reread
    and retry **only that local write** while the same job, submission operation and immutable terms
    remain unchanged and no txid exists. Never repeat the wallet call. Same txid is idempotent;
@@ -69,8 +81,10 @@ Default-collected acceptance uses two real coordinators/controllers and a revisi
 - host commit plus lost/delayed/rejected acknowledgement: exact operation readback or a no-send hold;
 - crash after intent/before wallet and after wallet/before txid: restart never automatically resends;
 - repeated operation ID: same payload idempotent, different payload rejected;
-- first identity conflict, capacity/disk/serialization fault, profile/context switch and third-context
-  restart: no overwrite, cross-context write or hidden loss.
+- active-profile change during validation, between commit and dispatch, and during dispatch: no
+  wrong-context call; repeated or fresh competing invocation IDs for one intent never dispatch twice;
+- first identity conflict, capacity/disk/serialization fault and third-context restart: no overwrite,
+  cross-context write or hidden loss.
 
 Run these tests before rendered-UI or signer-handoff work so later batches consume one stable
 journal contract. The current single-instance and shared-Web-Lock tests remain useful regressions,
@@ -124,12 +138,15 @@ A normalized provider model should distinguish:
 
 **Future target:** provider-v2 uses exact `distordia-type=swapService`, schema/service IDs, address-based instance isolation and a fuller public contract. Its builder/tests are now committed in swapService, but runtime publication remains v1. Agree its schema, field-size budget, migration rules and target-node query semantics jointly before enabling a v2 writer or reader as production infrastructure. Do not invent a v2-only discovery query and call existing v1 providers absent.
 
-**Upstream release dependencies:** distinguish registration defaults from publisher updates so
-omitted safe waterlines remain unchanged, verify address-bound per-instance checkpoint isolation,
-and close the current backend DB-loss/admission/hold-resolution findings. The old main-payout
-cap-bypass statement is historical, not a finding re-established against `85030c8`. These are swapService responsibilities;
-a DEX parser or UI guard cannot substitute for those service-side controls. Include their
-regression and live-boundary evidence in M5 acceptance.
+**Upstream release dependencies:** the October 2 swapService review accepts four published restore
+repairs that hold inconsistent restored-source families without mocked transport. The separately
+staged sealed-custody candidate passes 947 tests but is not accepted: its executable attestation
+omits the root entrypoint/interpreter/package artifacts, heartbeat validation is not an exact asset
+identity contract, and genesis-only checks do not establish Solana or Nexus freshness/readiness.
+Complete policy/capacity scheduling, receipt, disposition and live-boundary evidence also remain
+open. Older September 22 service-policy evidence is historical input, not the current comparison.
+These are swapService responsibilities; a DEX parser or UI guard cannot substitute for service-side
+controls. Include exact published-candidate regression and live-boundary evidence in M5 acceptance.
 
 ### Frozen job contract
 
@@ -177,9 +194,9 @@ Do not convert a timeout, missing lookup or changed balance into a terminal refu
 
 Status below distinguishes implementation/offline fixtures from target-wallet and live test-network evidence. A passing mocked suite does not satisfy a live acceptance criterion.
 
-| Milestone | 2026-09-28 status | Remaining exit evidence |
+| Milestone | 2026-10-02 status | Remaining exit evidence |
 |---|---|---|
-| M0 | **Substantially implemented offline** | Existing-tree verification passes 41 Jest + 110 swap tests, both lint gates, build, and the 12-file manifest check. It also reproduces three Redux errors; no collected test renders the component; and offline real-controller/coordinator probes expose cross-window journal loss/duplicate mutation. Exact-head remote CI was not refreshed in this local review. Repair and collect those regressions before claiming the engineering baseline complete. |
+| M0 | **Substantially implemented offline** | Existing-tree verification passes 41 Jest + 110 swap tests, both lint gates, build, and the 12-file manifest check. It also reproduces three Redux errors; no collected test renders the component; and offline real-controller/coordinator probes expose cross-window journal loss/duplicate mutation plus a mocked wallet call before post-validation profile-change detection. Exact-head remote CI was not refreshed in this local review. Repair and collect those regressions before claiming the engineering baseline complete. |
 | M1 | **Implemented offline** | Verify rendering, real list/filter/pagination shapes, provider selection, and read-only behavior inside supported Nexus Interface versions against a target node. |
 | M2 | **Partial / host-blocked** | Exact math/codecs and the journal exist, but current Nexus Interface cannot acknowledge durable storage; prove crash/restart, capacity, and profile-switch semantics in the host. |
 | M3 | **Implemented behind gates, offline only** | Exercise both directions with real test tokens, wallet rejection/timeouts, accepted-but-lost responses, and restart without duplicate sends. |
@@ -227,7 +244,7 @@ Status below distinguishes implementation/offline fixtures from target-wallet an
 
 **Solana→Nexus MVP:** retain external-wallet handoff rather than introduce a new wallet-adapter dependency immediately. Display/copy exact mint, network, destination token account, amount and memo. Validate a pasted signature against that job, using supported transaction versions/programs and authoritative successful finalized evidence. An embedded Solana wallet can be added later as another funding adapter.
 
-**Nexus→Solana:** resolve/validate a real destination token account; submit a supported `finance/debit/account` payload with exact `from`, `to`, amount and optional unsigned numeric reference through `secureApiCall`. Persist the returned identity. Publish/read back a user-owned `txid_toService`/`receival_account` mapping unique to that pending job. Keep mutation sequencing resumable across separate PIN approvals.
+**Nexus→Solana:** resolve/validate a real destination token account; submit a supported `finance/debit/account` payload with exact `from`, `to`, amount and optional unsigned numeric reference through the context-bound host mutation operation tied to the committed intent. Persist the returned identity. Publish/read back a user-owned `txid_toService`/`receival_account` mapping unique to that pending job. Keep mutation sequencing resumable across separate PIN approvals.
 
 **Exit:** wallet cancellation before send is safe; acceptance followed by timeout produces `SubmissionUnknown`; no duplicate send is possible by double-click, remount or retry. Mapping publication failure retains the debit/job and retries only the mapping. Two concurrent jobs cannot overwrite routing. Unknown token program, owner-only destination, wrong mint/network or changed provider identity is blocked before funding.
 
@@ -249,48 +266,63 @@ Status below distinguishes implementation/offline fixtures from target-wallet an
 
 - Run the whole flow in supported Nexus Interface versions and isolated Solana/Nexus test networks; verify real API field selection, global asset discovery/indexing, confirmation rules, debit-to-credit identity, mapping reads and token decimals.
 - Test one provider, two providers and two records owned by one signature chain. Include restart at every boundary, accepted-but-lost response, provider pause/outage, stale terms, incomplete history and explicit operator disposition.
-- Close or explicitly contain the current service-side DB-loss authorization, admission,
-  hold-resolution, provider-v2 and receipt-publication blockers documented in the service evaluation.
-  The older blanket main-payout-cap-bypass statement is historical and must not be repeated as a
-  current finding without a fresh service revision review. A client badge cannot substitute for
-  operator-side controls.
+- Preserve the four accepted published restored-source holds and close the service-side executable
+  attestation, heartbeat identity, node-freshness, witness bootstrap, capacity scheduling,
+  hold-resolution, provider-v2 and receipt-publication blockers documented in the current service
+  evaluation. Older September 22 policy probes remain historical evidence unless rerun against the
+  exact release candidate. A client badge cannot substitute for operator-side controls.
 - Make local build/lint/tests and exact-candidate CI truthful. Preserve the Nexus Interface dependency compatibility policy.
 - Enable discovery/inspection first. Enable funding only after the direction's entire initiation-to-final-evidence path passes; never enable a button on the strength of an isolated send test.
 
 **Exit:** a user can discover a real test provider from a clean client, verify its pair and terms, authorize one transfer, survive restart and obtain exact finalized output evidence—or a truthful durable unresolved state. No real production funds are required for acceptance. Every evidence-dependent label is traceable to its source.
 
-## Recommended next development batch — 2026-09-28
+## Recommended next development batches — 2026-10-02
 
-1. **Implement the authoritative host contract first:** use
+Execute these as acceptance-gated batches. Do not begin a later batch until the prior batch's named
+default-collected tests pass and the full offline gate is rerun. Keep all financial transport mocked
+through Batch 6 and keep `ACCEPTED_DEPLOYMENTS` empty through Batch 7.
+
+1. **Batch 1 — collect the failures without changing behavior:** convert the retained
+   `persistence-lifecycle`, `controller-two-window`, and context-switch probes into default-collected
+   regressions. Use two real coordinators/controllers and a revisioned fake host. Add explicit cases
+   for same-job duplicate submission, independent-job lost update, commit-plus-lost/rejected/delayed
+   acknowledgement, settings races before intent and after returned identity, crash boundaries,
+   same-operation/same-content replay, operation-ID content conflict, and competing invocation IDs.
+   Exit: the new tests fail for the documented reasons while all pre-existing tests remain green.
+2. **Batch 2 — implement the authoritative host contract:** use
    [docs/HOST_STORAGE_CONTRACT.md](docs/HOST_STORAGE_CONTRACT.md) as the acceptance source. Add
-   failing default-collected versions of the retained two-controller and lost-ack/settings probes
-   around a revisioned fake host. Require one wallet mutation, preservation of independent jobs,
+   the versioned host adapter and pure-transition/CAS coordinator. Require one wallet mutation,
+   preservation of independent jobs,
    conflict recomputation, operation-receipt reconciliation, safe local-only txid retry, immutable
-   first identity and identical third-context restart state. A shared Web Lock or
+   first identity and identical third-context restart state. Add the profile-switch probe and a
+   context-bound, durably claimed one-shot wallet invocation tied to the committed intent; test
+   switches during validation and dispatch plus repeated/fresh competing invocation IDs for one
+   intent. A shared Web Lock, module-side scope read, plain `secureApiCall`, or
    `Promise.resolve(updateStorage(...))` does not pass.
-2. **Repair Redux hydration:** project only reducer-owned `ui/settings/nexus` roots into
+3. **Batch 3 — repair Redux hydration and legacy-writer isolation:** project only reducer-owned `ui/settings/nexus` roots into
    `src/reducers/index.js` while persistence receives the untouched host envelope. In
    `__tests__/configureStore.test.js`, fail on unexpected `console.error`, assert exact root keys and
-   journal readback, and prove settings cannot overwrite a newer revision. Focused command:
+   journal readback, and prove settings cannot overwrite a newer revision or unknown commit. Focused command:
    `npm test -- --ci --runInBand __tests__/configureStore.test.js`.
-3. **Render the workflow:** choose supported Nexus Interface versions, then pin test-only
+4. **Batch 4 — render the workflow:** choose supported Nexus Interface versions, then pin test-only
    React/renderer dependencies matching the host in a separate compatibility change. The installed
    `nexus-module` 1.1.11 shims identify React/ReactDOM 19.1.0, but none is directly resolvable in the
    repository. Mount `StablecoinSwap({runtimeOverride})`; cover discovery outcomes, immutable-address
    failure, stale generations, consent invalidation, blocked funding, double activation,
    profile/network change, all recovery controls and unmount/timer cleanup. Rename the AST test that
    claims a mounted branch.
-4. **Repair signer handoff only after storage:** coordinate handoff/attempt state through the same
+5. **Batch 5 — repair signer handoff only after storage:** coordinate handoff/attempt state through the same
    wallet-owned authority. Distinguish proven no-attempt from submission unknown, test browser-launch
    failure and safe reopen, and repeat across isolated storage/lock namespaces with explicit consent.
-5. **Prove the host contract:** run its matrix in supported installed Nexus Interface versions with
+6. **Batch 6 — prove the host contract:** run its matrix in supported installed Nexus Interface versions with
    independent windows, real durable acknowledgement/readback, process termination, restart,
-   capacity failure and profile changes. Keep the wallet financial call mocked during this gate.
-6. **Prove service/chain behavior:** run M1 read-only target-node acceptance before transfers; close
+   capacity failure, profile changes and a context switch racing the one-shot invocation. Inspect
+   the bound context and invocation receipt. Keep the wallet financial call mocked during this gate.
+7. **Batch 7 — prove service/chain behavior:** run M1 read-only target-node acceptance before transfers; close
    swapService max/dust/finality, receipt, recovery/admission and disposition exits; then run isolated
    two-direction M3/M4 scenarios using explicitly authorized non-production assets and fault
    injection. Capture exact wallet, node, service, provider-record and client revisions.
-7. **Control enablement:** add an accepted deployment only after all prior evidence exists. Separately
+8. **Batch 8 — control enablement:** add an accepted deployment only after all prior evidence exists. Separately
    measure and reduce the 1.23 MiB app and 567 KiB signer bundles with compatibility-tested splitting;
    do not solve size or audit debt through blind dependency upgrades.
 

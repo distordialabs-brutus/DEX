@@ -1,11 +1,14 @@
 # DEX ↔ swapService bridge functionality and security evaluation
 
-**DEX revalidated 2026-09-25.** DEX `master` and `origin/master` are
-`d9ad9da0fb2011c227350c4ff90d8eaac4d657ea`. The two commits after the September 23 runtime baseline
-`416855d14ab605450bdf4ead92b66ded5e931330` change documentation/evidence only; the complete prior
-runtime-source manifest still verifies byte-for-byte. The swapService comparison remains the
-September 22 snapshot at `85030c890fa6f3bb7db97e068e5cf80827d21b28`; it was not represented as a
-fresh service review. See the full [September 25 DEX review](DEVELOPMENT_REVIEW_2026-09-25.md).
+**DEX revalidated 2026-10-02.** DEX `master`, `origin/master`, requested baseline, and current source
+are `94d82a7adf258dbb08fe3a62668373a1d8339d67`; `94d82a7..HEAD` is empty. The baseline is
+documentation-only relative to runtime `416855d14ab605450bdf4ead92b66ded5e931330`, and the complete
+36-file runtime-source manifest verifies byte-for-byte. There is no accepted coding progress after
+the requested baseline. The current swapService comparison is the October 2 review of published
+`origin/main` `7b2d1c4e3c9d3b2f006a083f9372cfadf80830fc` and the separately staged sealed-custody candidate
+reviewed at local service head `ee10b6e20dfe85f15347386adecb9dc99db55bb5`. Older September 22
+cross-protocol evidence is retained below as historical evidence, not presented as the fresh service
+comparison.
 
 ## Verdict
 
@@ -15,18 +18,26 @@ provider discovery, exact quotes, adapters, job controller and signing companion
 `ACCEPTED_DEPLOYMENTS=[]` blocks all funding. The required acknowledged wallet-storage extension
 is also not supplied by this repository/installed module SDK. Keep both gates closed.
 
-The highest-risk DEX defect remains **stale per-window journal state**: under a hypothetical
-accepted deployment, two serialized controllers can submit the same job twice. The September 25
-rerun reproduced two mocked debit calls and replacement of the first remote identity. It also
-reproduced uncertain journal erasure through a later settings write and last-writer loss across two
-independent jobs. Other retained gaps concern
-signer-context replay, unadvertised max/dust policy, and production receipt eligibility. These are
-not demonstrations of theft or live transfers in the current build.
+The highest-risk DEX defects remain **stale per-window journal state and an unbound wallet mutation
+context**. Under a hypothetical accepted deployment, two serialized controllers can submit the same
+job twice, and a profile change during asynchronous validation can reach the mocked wallet call
+before the controller's post-call scope check. The October 2 rerun reproduced two mocked debit calls
+and replacement of the first remote identity, uncertain journal erasure through a later settings
+write, last-writer loss across two independent jobs, and one mocked debit under the changed profile.
+Other retained gaps concern signer-context replay, unadvertised max/dust policy, and production
+receipt eligibility. These are not demonstrations of theft or live transfers in the current build.
+
+Accepted progress is design/evidence only. The maintained host contract now specifies authoritative
+revision/CAS storage, durable operation receipts, uncertain-acknowledgement reconciliation, settings
+isolation, immutable first remote identity, and a separate context-bound one-shot invocation with a
+two-context fault matrix. The current DEX, installed `nexus-module` 1.1.11, and reviewed Nexus
+Interface boundary do not implement that contract. Funding remains correctly contained by
+`ACCEPTED_DEPLOYMENTS=[]` and the missing acknowledged-storage capability.
 
 The [September 7 evaluation](SWAP_SERVICE_EVALUATION_2026-09-07_HISTORICAL.md) is archived unchanged.
 Its disabled-tab, absent-mapping, floating-point quote and heuristic-completion findings describe the
-old prototype, not current runtime. The [September 21 general review](DEVELOPMENT_REVIEW_2026-09-21.md)
-remains historical regression evidence; this review supersedes its bridge-specific repair priority.
+old prototype, not current runtime. Dated development reviews remain historical evidence; this
+maintained evaluation is the current bridge-specific issue register and repair priority.
 
 ## Functionality against the actual service
 
@@ -176,30 +187,63 @@ cancel the non-draft job, and has no safe reopen control.
   particular, oversized Nexus principal can require operator intervention. No local timeout should
   be labelled refunded without attributable evidence.
 
+### C-7 — High activation blocker: committed storage does not bind wallet mutation context
+
+**Code:** `src/swap/controller.js:162-180`; `src/swap/nexus.js` secure mutation boundary;
+`src/swap/runtime.js:48-68`.
+
+`submitNexus` verifies scope, awaits asynchronous funding validation, commits `submission_unknown`,
+calls `nexus.submitDebit`, and only then verifies scope again. The fresh production-controller probe
+changes the active genesis from `profile-A` to `profile-B` inside validation. The mocked debit is
+called once while `profile-B` is active; the post-call check then rejects, retaining
+`submission_unknown` without the returned txid. Funding is currently disabled and no real wallet
+profile behavior or transfer was exercised.
+
+A DEX scope reread immediately after validation is necessary but cannot close the final
+check-to-dispatch race. The host must bind the committed intent operation, exact endpoint/parameters,
+PIN prompt, dispatch context, and one durable invocation claim. A duplicate/restarted caller or a
+fresh competing invocation ID for the same intent must observe the existing returned/unknown result
+without another dispatch.
+
+**Exit:** implement `docs/HOST_STORAGE_CONTRACT.md` in the wallet/SDK and consume it in DEX. Collect
+profile changes during validation, between commit and dispatch, and during dispatch using two real
+controllers plus a revisioned fake host. Require zero wrong-context calls, at most one mocked remote
+attempt, immutable first identity, and restart-stable returned/unknown invocation receipts.
+
 ### Design context — accountability evidence is additive, not authorization
 
-The untracked `vision.md` supplied for this review is consistent with the fail-closed findings and
-adds a useful future boundary: namespace attestations, bonds, challenge history and risk signals may
-be displayed as inspectable provider evidence, but must not become opaque endorsement badges,
-settlement proof, or a Distordia-controlled execution gate. Preserve exact issuer/namespace, source,
-revision and expiry and label observed, inferred and attested claims separately. This future read-only
-work does not lower C-1 through C-7, establish provider solvency, or justify a deployment acceptance
-record. The file was read without staging or changing it.
+Namespace attestations, bonds, challenge history and risk signals may be displayed as inspectable
+provider evidence, but must not become opaque endorsement badges, settlement proof, or a
+Distordia-controlled execution gate. Preserve exact issuer/namespace, source, revision and expiry
+and label observed, inferred and attested claims separately. This future read-only work does not
+lower C-1 through C-8, establish provider solvency, or justify a deployment acceptance record.
 
-### C-7 — Service-side safety gates also block client activation
+### C-8 — Service-side safety gates also block client activation
 
-The parent review subsequently published the [September 25 sibling assessment](https://github.com/distordialabs-brutus/swapService/blob/9f12211811331bae741702757e9d8259a16d55ff/docs/DEVELOPMENT_REVIEW_2026-09-25.md), reviewing service runtime `17f65a3e3b45281162c1604cd0a695a36dc55991`. This updates recovery admission only; the September 22 cross-protocol fixtures above were not rerun against that newer service:
+The October 2 swapService review accepts four repairs now published through
+`7b2d1c4e3c9d3b2f006a083f9372cfadf80830fc`. Restored sources with terminal conflicts, retained
+capacity intent, retained debit metadata, or retained ordinary disposition rows are held with full
+principal/evidence, zero mocked transport and atomic rollback. Younger valid work progresses in the
+applicable scenarios. These repairs supersede earlier present-tense claims that those four restored
+source families remained replayable.
 
-- the empty-custody database latch now closes the exact total-empty-DB/WAL-loss replay path as narrow containment;
-- partial/stale restores with one unrelated retained source can still lose historical authorization and reinterpret a recovered deposit under current policy;
-- other startup refusals can appear healthy on the dashboard, and malformed oldest capacity evidence still blocks younger eligible work;
-- failed registration validation is alert-only, and authoritative network/sync admission is incomplete;
-- several Solana policy/evidence/conflict/unknown-submission holds lack audited resolution;
-- provider-v2 is unwired and receipt enablement remains separately blocked.
+The separately staged sealed-custody candidate passed 947 tests plus focused recovery/custody gates,
+but remains unaccepted for release:
 
-The previous statements that the minimum classifier and typed cap holds are simply missing are
-obsolete: they are implemented and tested with surviving database evidence. A corrected DEX cannot
-substitute for backend recovery/admission repair. No real-funds activation is authorized here.
+- executable attestation covers `src/*.py` and `requirements.txt` but omits the root
+  `swapService.py` entrypoint, interpreter and installed package artifacts, so pre-admission code can
+  change without changing the fingerprint;
+- heartbeat validation checks only three expected fields and accepted a fixture with different
+  address, owner, provider, token register and vault, so it is not an exact asset identity contract;
+- chain admission reads genesis identities but does not establish Solana health/root freshness or
+  Nexus sync, mode, network and tip freshness before mutable startup;
+- supported witness bootstrap/restore evidence, malformed-capacity starvation repair,
+  evidence-bound hold resolution, provider-v2, receipts and live fault acceptance remain open.
+
+The September 22 policy/receipt probes remain useful historical cross-protocol evidence and were not
+silently discarded, but the October 2 review is the current service comparison. A corrected DEX
+cannot substitute for these backend admission and operability exits. No real-funds activation is
+authorized here.
 
 ## Dependency security — assessed, not remediated
 
@@ -218,42 +262,50 @@ and bundled-code reachability review before release.
 
 | Check | Result |
 |---|---|
-| `npm run test:all` (2026-09-25) | 5 Jest suites / **41 tests**, plus **110 Node swap tests** passed; Jest still emitted three `swapJournal` Redux diagnostics and one expected no-session warning |
-| Focused journal/component checks (2026-09-25) | 3 configure-store tests and a **31-test** persistence/jobs/controller/integration shard passed. The configure-store shard emitted all three diagnostics; the two integration checks inspect source/AST and do not mount React |
-| `npm run lint:swap` / `npm run lint` (2026-09-25) | Strict swap lint passed with zero warnings; repository gate passed with 0 errors / **21 warnings** |
-| `npm run build` (2026-09-25) | Webpack 5.99.9 emitted 1,287,841-byte app and 580,804-byte signer bundles with 3 performance warnings |
-| Manifest files (2026-09-25) | All **12** entries exist |
-| Journal/controller probes (2026-09-25 rerun) | Serialized stale controllers made **2** mocked debit calls for one job; lost acknowledgement plus settings write erased `submission_unknown`; a stale second coordinator replaced `job-A` with `job-B` |
-| Exact-head CI | GitHub Actions run `35822340652` passed all Node 20 install/lint/Jest/swap/lint/build/manifest steps for `d9ad9da` |
+| Configured tests (2026-10-02) | `npm test -- --ci --coverage --runInBand`: 5 Jest suites / **41 tests** passed; `npm run test:swap`: **110/110** reported Node tests passed. Jest still emitted three `swapJournal` Redux diagnostics and one expected no-session warning |
+| Focused state-machine/store checks (2026-10-02) | **31/31** persistence/jobs/controller/integration tests and **3/3** configure-store tests passed. The configure-store shard emitted all three diagnostics; the two integration checks inspect source/AST and do not mount React |
+| `npm run lint:swap` / `npm run lint` (2026-10-02) | Strict swap lint passed with zero warnings; repository gate passed with 0 errors / **21 warnings** |
+| `npm run build` (2026-10-02) | Webpack 5.99.9 emitted 1,287,841-byte app and 580,804-byte signer bundles with 3 performance warnings |
+| Manifest/runtime hashes (2026-10-02) | All **12** manifest entries exist; all **36/36** runtime-source hashes pass |
+| Journal/controller probes (2026-10-02 rerun) | Serialized stale controllers made **2** mocked debit calls for one job; lost acknowledgement plus settings write erased `submission_unknown`; a stale second coordinator replaced `job-A` with `job-B`; profile changed during validation and the mocked wallet was called once under the changed scope |
+| Signer/policy probes (2026-10-02 rerun) | Two isolated browser namespaces made **2** mocked signer submissions; synthetic accepted deployments still admit unadvertised max and Nexus dust-gap inputs; no wallet, RPC, persistence, service or funds were used |
+| Exact-head CI | Not refreshed. The prior exact-head run is historical and does not replace the fresh local evidence |
+| Current swapService review (2026-10-02) | Four published restore fixes accepted through `7b2d1c4`; staged sealed-custody candidate passed **947 tests** but remains blocked on complete executable attestation, exact heartbeat identity, chain freshness/readiness and operability/live acceptance |
 | Ordinary-range service→DEX fixture (2026-09-22) | Real service v1 builder/memo/quote functions agree with client in both directions |
-| Other September 22 mismatch/lifecycle probes | Reproduced isolated signer attempts, max/dust mismatch and receipt admission conflict; not rerun as a new service assessment on September 23 |
-| Source identity | DEX `HEAD` = `origin/master` = `d9ad9da`; all 36 September 23 runtime/test hashes still verify; September 25 reviewed-source hashes are recorded in `docs/review_evidence/2026-09-25/reviewed-sources.sha256`; the real Git index was not staged |
+| Source identity | DEX `HEAD` = `origin/master` = requested baseline `94d82a7adf258dbb08fe3a62668373a1d8339d67`; no later commit or runtime path delta; real index tree remained `3348d861ba30f7d04d0e00e161420ffa5502102b` and nothing was staged |
 | Rendered host / live chains | **Not established**; no credentials, live wallet, RPC, service or chain operations used |
 
-Two independent September 22 reviews, source manifests and diagnostic probes are retained locally
-at `docs/review_evidence/2026-09-22/`; those local-only artifacts are excluded from this publication
-candidate. They are offline diagnostics, not new collected regression tests. Reviewer severity
-labels are scoped/corrected by this consolidated evaluation; the original reports are preserved
-rather than silently edited. The September 23 DEX continuity review remains historical evidence. The current
-[September 25 review](DEVELOPMENT_REVIEW_2026-09-25.md) links the reviewed sources, fresh gates and
-preservation boundary.
+The September 22 observations remain historical evidence in this evaluation. Their local-only raw
+reports, manifests and diagnostic scripts are excluded from this publication candidate; they are
+not new collected regression tests. Reviewer severity labels are scoped/corrected by this
+consolidated evaluation rather than silently rewriting the historical findings.
 
 ## Repair order
 
-1. Keep funding disabled; repair C-1/C-2 together with a real authoritative storage protocol and
-   default-collected controller/coordinator regressions. Require one remote call and preservation of
-   both windows’ jobs/identities through uncertain acknowledgements and restart. Do not just
-   implement a promise-shaped host method.
-2. Split Redux hydration from journal ownership and require zero unknown-key diagnostics, then add
-   a collected rendered-component suite that exercises the real `StablecoinSwap` interaction paths.
-3. Resolve C-5 durable signing handoff and safe recovery alongside actual supported-wallet tests.
-4. Repair service dust retention/configuration, publish complete max/dust/finality policy and enforce
-   it in client quotes, funding rereads, deployment acceptance and signing (C-3/C-6).
-5. Close the production receipt contradiction and backend recovery/admission/hold-resolution gates
-   (C-4/C-7), then run both directions on explicitly authorized test networks.
-6. Require exact candidate identities, renderer/wallet installation evidence, restart/crash/unknown
-   outcomes, exact payout and disposition readbacks, and compatible dependencies before adding an
-   accepted deployment. Retain all existing exact-evidence and no-blind-resubmit controls.
+1. **Collect failures:** move the retained two-window, lost-ack/settings and profile-switch probes
+   into default-collected tests around two real controllers/coordinators and a revisioned fake host.
+   Include independent jobs, acknowledgement loss/delay/rejection, crash boundaries, settings races,
+   operation-ID replay/content conflict and competing invocation IDs.
+2. **Implement C-1/C-2/C-7 together:** authoritative read/CAS/operation readback, pure conflict
+   recomputation, settings isolation, context-bound one-shot mutation, immutable first identity and
+   local-only identity-write retry. Exit requires one mocked remote call, both windows' jobs retained,
+   and identical third-context restart state. A promise-shaped host method does not pass.
+3. **Repair Redux projection:** persistence receives the untouched envelope; Redux receives only
+   `ui/settings/nexus`. Make unexpected `console.error` fail the focused tests and prove no legacy
+   settings writer can replace a newer or uncertain journal revision.
+4. **Add rendered evidence:** pin only Nexus-compatible test renderer dependencies in a separately
+   reviewed lockfile change; mount `StablecoinSwap({runtimeOverride})` and drive discovery, blocked
+   funding, double activation, stale generations, scope changes, recovery actions and timer cleanup.
+5. **Repair C-5 signing handoff:** use wallet-owned durable attempt authority; prove browser-launch
+   no-attempt recovery and isolated-context behavior without automatic resubmission.
+6. **Run target-wallet acceptance:** repeat the complete storage/invocation matrix in each supported
+   Nexus Interface version with financial transport mocked and exact wallet/SDK/client revisions.
+7. **Close C-3/C-4/C-6/C-8 across repositories:** publish/freeze complete service policy, retain dust,
+   resolve receipt production admission and backend recovery/hold exits, then exercise both
+   directions on explicitly authorized non-production networks.
+8. **Control enablement:** require exact candidate identities, restart/crash/unknown outcomes, exact
+   payout/disposition readback and compatible dependencies before adding an accepted deployment.
+   Retain all existing exact-evidence and no-blind-resubmit controls.
 
 This review changes documentation/evidence only. Nothing was staged, committed, pushed, deployed
 or sent on-chain. See the updated [development plan](SWAP_SERVICE_DEVELOPMENT_PLAN.md).

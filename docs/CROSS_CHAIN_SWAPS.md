@@ -4,9 +4,9 @@ The **Cross-chain swaps** tab replaces the old single-provider prototype. It is 
 
 ## Current release status
 
-**Implemented client and opt-in service receipt protocol; funding is not release-enabled.** Discovery, provider inspection, and exact quotes work without an accepted funding deployment. Current Nexus Interface has an additional storage-capability blocker described below. No live transfers, production activation, wallet installation, commits, or pushes are part of this change.
+**Implemented client and opt-in service receipt protocol; funding is not release-enabled.** Discovery, provider inspection, and exact quotes work without an accepted funding deployment. Current Nexus Interface has additional authoritative-storage and context-bound-mutation capability blockers described below. No live transfers, production activation, wallet installation, commits, or pushes are part of this change.
 
-`src/swap/deployment.js` deliberately has an empty `ACCEPTED_DEPLOYMENTS` array. Do not populate it merely because offline tests pass. The [2026-09-28 DEX review](../DEVELOPMENT_REVIEW_2026-09-28.md) confirms that the requested `19982fb` baseline is still current and freshly reproduces the client persistence, Redux hydration, signer-isolation and rendered-test gaps. The [authoritative host storage contract](HOST_STORAGE_CONTRACT.md) is the normative repair boundary. The [cross-repository evaluation](../SWAP_SERVICE_EVALUATION.md) retains the September 22 service-policy/receipt comparison. The earlier blanket daily-cap bypass statement is historical; the latest separately reviewed backend recovery/admission issues still block release.
+`src/swap/deployment.js` deliberately has an empty `ACCEPTED_DEPLOYMENTS` array. Do not populate it merely because offline tests pass. The [2026-10-02 DEX review](../DEVELOPMENT_REVIEW_2026-10-02.md) confirms that the requested `94d82a7` baseline is still current and freshly reproduces the client persistence, Redux hydration, signer-isolation and rendered-test gaps. It also proves at the mocked production-controller boundary that an active-profile change during asynchronous funding validation reaches `submitDebit` before the existing post-call scope check holds the job as unknown. The [authoritative host storage and mutation-handoff contract](HOST_STORAGE_CONTRACT.md) is the normative repair boundary. The [cross-repository evaluation](../SWAP_SERVICE_EVALUATION.md) incorporates the October 2 swapService review: four published restore repairs are accepted, while the staged sealed-custody candidate remains blocked on complete executable attestation, exact heartbeat identity and node freshness/readiness. Older September 22 service-policy/receipt evidence remains historical.
 
 ## Why a custom Solana wallet is unnecessary
 
@@ -29,6 +29,12 @@ References: [Phantom transaction signing](https://docs.phantom.com/solana/sendin
   erase a committed journal update. September 23 reruns reproduced both paths with real
   controllers/coordinators and mocked boundaries. Implement authoritative revisioned persistence,
   not just a promise wrapper.
+- Versioned storage alone does not bind a later wallet mutation to the committed profile. The
+  current `secureApiCall(endpoint, params)` bridge carries no storage context, intent operation or
+  one-shot invocation identity. A mocked controller probe switches profile during funding
+  validation, observes one debit call under the changed scope, then reaches the post-call scope
+  rejection. Add an immediate DEX scope reread and a host-bound one-shot mutation; the former alone
+  cannot close a switch racing dispatch.
 - Redux hydration currently admits `swapJournal` as an unknown root, emits three diagnostics in the
   collected configure-store suite and then discards that Redux key. Keep journal ownership in the
   persistence coordinator and hydrate Redux from reducer-owned roots only.
@@ -73,8 +79,8 @@ without returning a durable versioned result. The current DEX symbol
 `updateStorageAcknowledged(data)` is explicitly a placeholder gate; wrapping `updateStorage` in a
 Promise would manufacture acknowledgement and remains unsafe.
 
-The normative replacement is [the authoritative host storage contract](HOST_STORAGE_CONTRACT.md),
-not an acknowledgement-only patch. The host must provide:
+The normative replacement is [the authoritative host storage and mutation-handoff
+contract](HOST_STORAGE_CONTRACT.md), not an acknowledgement-only patch. The host must provide:
 
 - authoritative `{contextId, revision, value}` reads shared by independent windows;
 - atomic compare-and-swap of the complete intended value with an explicit operation ID;
@@ -83,12 +89,16 @@ not an acknowledgement-only patch. The host must provide:
 - crash-durable operation receipts, exact persisted-content hashes, context-switch rejection and
   pre-commit capacity/serialization failure;
 - either CAS for every settings/journal writer or a separate journal namespace that legacy settings
-  replacement cannot address.
+  replacement cannot address;
+- a context-bound mutating API that verifies the committed intent operation, durably permits one
+  invocation claim per intent before dispatch, binds the PIN/API call to the same wallet
+  profile/session, and returns only proven pre-dispatch rejection, a response, or `outcome_unknown`.
 
-DEX must recompute pure transitions after conflicts, reconcile unknown commits before action, and
-call `secureApiCall` only after the exact `submission_unknown` intent commit is proven. After a
-wallet response, an unrelated settings conflict may retry only the local identity write while the
-same uncertain job remains unchanged; it may never repeat the wallet call. Unknown readback,
+DEX must recompute pure transitions after conflicts, reconcile unknown commits before action,
+reread scope after asynchronous validation, and invoke the wallet only through the context-bound
+handoff after the exact `submission_unknown` intent commit is proven. After a wallet response, an
+unrelated settings conflict may retry only the local identity write while the same uncertain job
+remains unchanged; it may never repeat the wallet call. Unknown readback, invocation uncertainty,
 changed job or competing identity remains an operator-visible hold.
 
 A resolved false, missing method, missing Web Locks, storage failure, corrupt journal, ambiguous
@@ -129,7 +139,7 @@ The sequential reference alone cannot identify the originating Solana transfer; 
 | `nexus.js` | Real Nexus API payloads and exact source, routing, receipt, DEBIT/CREDIT proof. |
 | `solana.js` | Installed SDK transaction construction, classic SPL account validation and finalized transfer/memo proof. |
 | `jobs.js`, `controller.js` | Scoped immutable journal, serialized intent-first state transitions and no-resubmit recovery. |
-| `persistence.js`, `configureStore.js` | Current per-instance coordinator: acknowledged financial writes and legacy settings saves. It does not satisfy the authoritative cross-context contract in `docs/HOST_STORAGE_CONTRACT.md`; revision/CAS, operation readback and uncertain-write preservation remain absent. |
+| `persistence.js`, `configureStore.js` | Current per-instance coordinator: acknowledged financial writes and legacy settings saves. It does not satisfy `docs/HOST_STORAGE_CONTRACT.md`; revision/CAS, operation readback, uncertain-write preservation and context-bound one-shot mutation remain absent. |
 | `runtime.js` | Adapter composition, fresh scope/provider/pair/quote validation and public signing handoff. |
 | `deployment.js` | Static network/genesis allowlist and per-deployment acceptance/dust gates. Never loaded from provider-controlled data. |
 | `signingPage.js`, `dist/solana-sign.html` | Non-custodial external-browser signing surface. |
@@ -163,7 +173,7 @@ Both suites are required. GitHub CI runs them on Node 20, runs both lint gates, 
 
 Before enabling any exact deployment:
 
-- [ ] Implement and validate authoritative revisioned/CAS storage in the target Nexus wallet, including independent windows, uncertain acknowledgement/readback, settings writers, restart/crash and size-limit failures.
+- [ ] Implement and validate authoritative revisioned/CAS storage plus context-bound one-shot mutation in the target Nexus wallet, including independent windows, uncertain acknowledgement/readback, settings writers, duplicate/restarted invocations, profile switches racing dispatch, restart/crash and size-limit failures.
 - [ ] Add a default-collected rendered `StablecoinSwap({ runtimeOverride })` suite; source/AST navigation checks are not rendering acceptance.
 - [ ] Verify installed module serving/open-in-browser URLs, browser wallet injection, supported Web Locks, and persisted origins.
 - [ ] Exercise both directions on actual Nexus testnet and Solana devnet/testnet with configured tokens, all fees, minima/dust and sufficient liquidity.
