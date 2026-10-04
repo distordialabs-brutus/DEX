@@ -1,5 +1,11 @@
 # DEX architecture
 
+## Governing vision and portfolio traceability
+
+Read [the repository vision](vision.md) and [Distordia alignment/dependency map](docs/DISTORDIA_ALIGNMENT.md) before assigning work. Authority is master Distordia strategy/customer evidence → portfolio roadmap/strategy decisions → repository vision → this architecture → tasks/code/tests/external evidence and human release.
+
+**Portfolio purpose:** O1 interoperable open interfaces; O4 attributable wallet settlement. User-wallet authorization and recoverable, independently inspectable settlement; no module custody. Native Nexus trading and provider-custodial cross-chain transfers stay visibly distinct. The alignment map supplies customer-evidence qualification, batch ownership, upstream prerequisites and human gates. Each material task must name those fields alongside its exact production paths and collected acceptance tests. This documentation alignment changes no runtime, test result or release status; dated evidence below remains evidence for its stated snapshot only.
+
 ## Current development review — 2026-10-02
 
 The [October 2 review](DEVELOPMENT_REVIEW_2026-10-02.md) revalidates `master` and
