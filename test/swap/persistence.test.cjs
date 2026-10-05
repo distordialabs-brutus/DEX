@@ -19,13 +19,14 @@ test('module journal waits for acknowledged persistence and survives hydration',
 });
 
 
-test('legacy fire-and-forget settings keep saving while unavailable acknowledged journal blocks funding', async () => {
+test('legacy settings save before a journal fault but cannot bypass the resulting storage hold', async () => {
  const writes=[];
  const p=implementation.createModulePersistence(undefined,{writeSettings:value=>{writes.push(value);}});
  p.hydrate({settings:{timespan:1},swapJournal:{version:1,jobs:[]}});
  await p.saveSettings({timespan:2});
  await assert.rejects(()=>p.writeJournal({version:1,jobs:[]}),/acknowledge|capability/i);
- await p.saveSettings({timespan:3});
- assert.equal(writes.length,2); assert.equal(writes[1].settings.timespan,3);
- assert.deepEqual(writes[1].swapJournal,{version:1,jobs:[]});
+ await assert.rejects(()=>p.saveSettings({timespan:3}),/writes blocked.*recovery/i);
+ assert.equal(writes.length,1); assert.equal(writes[0].settings.timespan,2);
+ assert.deepEqual(writes[0].swapJournal,{version:1,jobs:[]});
+ assert.deepEqual(p.readJournal(),{version:1,jobs:[]});
 });

@@ -12,6 +12,10 @@ function createModulePersistence(write, {writeSettings = write} = {}) {
   }
   function enqueue(change, journal = true) {
     const operation = queue.then(async () => {
+      // A failed journal acknowledgement may follow a durable host commit. Our
+      // cache cannot prove otherwise, so no later full-snapshot writer (including
+      // settings) may overwrite it. Reads remain available for inspection only.
+      if (fault) { throw new Error(`Storage unavailable; writes blocked until authoritative recovery: ${fault.message}`); }
       healthy(journal);
       const next = change(clone(data));
       const serialized = JSON.stringify(next);

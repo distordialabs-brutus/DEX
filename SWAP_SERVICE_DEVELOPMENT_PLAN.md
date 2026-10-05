@@ -29,6 +29,38 @@ Local verification after a clean `npm ci`: 4/4 focused configure-store tests,
 production build and all 12 manifest files passed; existing Redux diagnostics,
 lint/build warnings and dependency audit findings remain separate open debt.
 
+## 2026-10-05 narrow C-2 journal-fault containment
+
+After the C-1 admission fix at `bff04e2`, the first priority still includes journal
+loss through stale settings writes. This increment changes only
+`src/swap/persistence.js`: once a journal fault is latched, every later queued
+snapshot write rejects, including legacy settings. Reads remain inspectable;
+settings changes remain local after a fault, with the existing storage diagnostic.
+No automatic recovery/reset is introduced. A successful delayed acknowledgement
+still permits the queued settings write while preserving the journal and foreign
+keys.
+
+**Traceability:** O4 recoverable, attributable wallet settlement; explicit non-Atlas
+wallet/bridge hypothesis; DEX owns coordinator/middleware containment. The scheduled
+maintainer implements and verifies the local candidate; the repository's human
+maintainers retain release authority, and wallet owners retain keys/consent. No
+production funds, custody, deployment acceptance or dependency versions change.
+NexusInterface/SDK CAS, durable receipts, namespace isolation and bound invocation
+remain upstream prerequisites. This same-instance hold is not cross-window or
+restart write authority and does not close C-1/C-2/C-7.
+
+**Collected evidence:** five regressions failed before the guard and passed after.
+`__tests__/persistence.test.js` covers committing-host acknowledgement rejection,
+negative/error/missing acknowledgement, delayed failure, repeated blocked settings
+and journal writes, restart preservation, and successful-delay/unknown-field
+controls. Existing configure-store and swap persistence tests now require no
+legacy-writer bypass after a fault. After `npm ci`,
+`npm test -- --ci --coverage --runInBand` passed 48/48 and `npm run test:swap`
+passed 110/110; `npm run lint`, `npm run lint:swap` and `npm run build` passed.
+Existing Redux diagnostics, 21 repository lint warnings, bundle warnings and
+67 dependency audit findings remain unrelated open debt. Installed-wallet and
+revisioned multi-context acceptance are still required before later batches.
+
 ## Current execution order — 2026-10-02
 
 The October 2 review confirms no implementation progress after `94d82a7`. Fresh gates remain green

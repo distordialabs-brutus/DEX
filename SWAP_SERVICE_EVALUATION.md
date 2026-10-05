@@ -1,9 +1,10 @@
 # DEX ↔ swapService bridge functionality and security evaluation
 
 **Current incremental status, 2026-10-05:** the C-1 section records a collected,
-fail-closed storage-admission containment fix. The October 2 source identities,
+fail-closed storage-admission containment fix; C-2 records a subsequent journal-fault
+hold that also blocks legacy settings writes. The October 2 source identities,
 counts and probe results below remain historical evidence for that snapshot;
-they do not describe the later containment candidate or close the host protocol.
+they do not describe these later containment candidates or close the host protocol.
 
 **DEX revalidated 2026-10-02.** DEX `master`, `origin/master`, requested baseline, and current source
 are `94d82a7adf258dbb08fe3a62668373a1d8339d67`; `94d82a7..HEAD` is empty. The baseline is
@@ -112,6 +113,34 @@ sufficient.
 
 ### C-2 — High integrity defect: settings can erase an uncertain journal write
 
+**2026-10-05 narrow fault-containment update:** `src/swap/persistence.js` now
+checks its latched journal fault before **every** queued snapshot write, including
+`saveSettings`. A failed/missing acknowledgement may follow a durable host commit;
+the stale cache is no longer allowed to overwrite that commit. Settings already
+queued behind a delayed journal acknowledgement also reject if it fails. Inspection
+continues, but cache readback and rehydration are not recovery authority. Native
+settings saves before a journal fault and local Redux settings changes still work;
+after a fault, settings are session-only and the existing middleware reports the
+storage failure. Even a journal failure before host dispatch conservatively holds
+later writes; there is no automatic fault reset.
+
+Default-collected `__tests__/persistence.test.js` uses the real coordinator and a
+mocked committing host to cover rejected, negative, error and missing durable
+acknowledgements, delayed failure, repeated blocked writes and restart preservation
+of the unknown state/first txid. A successful delayed-ack control preserves both
+settings and journal plus unknown envelope fields. Updated configure-store and
+swap regressions require the settings path not to bypass the hold. Five failing
+regressions were observed before the fix; the full candidate passes 48 Jest tests
+with coverage, 110 swap tests, both lint gates and the production build.
+
+This contains the **same-coordinator fault path only**, not the full C-2 exit.
+Other windows and restarts still require authoritative read/CAS/operation receipts
+and isolation of all legacy settings writers. Restart fixtures prove durable bytes
+survive the contained overwrite attempt, not that hydration creates global write
+authority. C-1/C-2/C-7 host acceptance and human release remain open; no deployment
+is accepted and no real wallet transport was used.
+
+The following code references and probe describe the pre-containment snapshot.
 **Code:** `src/swap/persistence.js:13-30,44-45`; `src/configureStore.js:61-71`.
 
 If a host commits a journal write but rejects/loses its acknowledgement, cached `data` remains old.

@@ -80,14 +80,29 @@ test('promise-returning snapshot writer cannot admit journal writes or funding',
   const nextJournal = { version: 1, jobs: [...initialJournal.jobs, { id: 'next-job', state: 'awaiting_signature' }] };
 
   expect(() => persistence.healthy()).toThrow(/capability|authoritative/i);
+  // Native settings work before a fault; journal inspection remains available.
+  store.dispatch({ type: SET_TIMESPAN, payload: '1m' });
+  await flush();
+  expect(updateStorage).toHaveBeenCalledWith({ settings: { timeSpan: '1m' }, swapJournal: initialJournal });
+
   await expect(persistence.writeJournal(nextJournal)).rejects.toThrow(/capability|authoritative/i);
   expect(writer).not.toHaveBeenCalled();
   expect(persistence.readJournal()).toEqual(initialJournal);
 
-  // Containment does not disable existing native settings or journal inspection.
-  store.dispatch({ type: SET_TIMESPAN, payload: '1m' });
-  await flush();
-  expect(updateStorage).toHaveBeenCalledWith({ settings: { timeSpan: '1m' }, swapJournal: initialJournal });
+  // A fault holds every full-snapshot writer, including the settings middleware.
+  const diagnostic = jest.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    store.dispatch({ type: SET_TIMESPAN, payload: '1w' });
+    await flush();
+    expect(updateStorage).toHaveBeenCalledTimes(1);
+    expect(store.getState().settings.timeSpan).toBe('1w');
+    expect(diagnostic).toHaveBeenCalledWith(
+      'Wallet storage failed; new swap funding is blocked.',
+      expect.stringMatching(/writes blocked until authoritative recovery/i)
+    );
+  } finally {
+    diagnostic.mockRestore();
+  }
 });
 
 test('two real hydrated controllers reject snapshot-only storage before either wallet debit', async () => {
