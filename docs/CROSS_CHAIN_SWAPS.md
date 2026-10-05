@@ -75,9 +75,13 @@ Every recovery operation is evidence-based. A bounded empty scan, a balance incr
 
 Source inspection of the installed `nexus-module` 1.1.11 boundary exposes only
 `updateStorage(data)`, and the reviewed Nexus Interface behavior calls its module storage writer
-without returning a durable versioned result. The current DEX symbol
-`updateStorageAcknowledged(data)` is explicitly a placeholder gate; wrapping `updateStorage` in a
-Promise would manufacture acknowledgement and remains unsafe.
+without returning a durable versioned result. DEX no longer wires the acknowledgement-only
+`updateStorageAcknowledged(data)` placeholder into production persistence. The legacy snapshot
+coordinator remains read-only for journal writes even if that method exists: wrapping
+`updateStorage` in a Promise would manufacture acknowledgement, not cross-window authority.
+Cached journal inspection and native settings remain available; authoritative journal writes and
+context-bound wallet invocation still require the protocol below. This containment does not repair
+legacy cross-window settings replacement or authorize recovery mutations/funding.
 
 The normative replacement is [the authoritative host storage and mutation-handoff
 contract](HOST_STORAGE_CONTRACT.md), not an acknowledgement-only patch. The host must provide:

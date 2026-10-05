@@ -1,4 +1,3 @@
-/* global NEXUS */
 import { createStore, compose, applyMiddleware } from 'redux';
 import thunk from 'redux-thunk';
 
@@ -55,11 +54,13 @@ const selectSessionState = memoizeBySource(
 );
 
 export default function configureStore() {
-  // Current Nexus Interface updateStorage is fire-and-forget. The acknowledged
-  // extension below is a REQUIRED FUTURE host capability, not an existing SDK API.
-  // See docs/CROSS_CHAIN_SWAPS.md; legacy settings retain their existing writer.
-  const persistence = installPersistence(NEXUS.utilities.updateStorageAcknowledged,
-    {writeSettings: updateStorage});
+  // A promise-returning full-snapshot writer is not cross-window authority: two
+  // hydrated coordinators can both commit a stale draft and debit it (C-1).
+  // Do not wire updateStorageAcknowledged into this legacy coordinator. Journal
+  // writes stay read-only until the host CAS/operation-receipt and context-bound
+  // invocation protocol in docs/HOST_STORAGE_CONTRACT.md is implemented and used.
+  // Native settings retain their existing writer; cached journals remain inspectable.
+  const persistence = installPersistence(undefined, {writeSettings: updateStorage});
   const persistentData = store => next => action => {
     const previousSettings = store.getState()?.settings;
     const result = next(action);

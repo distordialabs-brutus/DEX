@@ -1,5 +1,10 @@
 # DEX ↔ swapService bridge functionality and security evaluation
 
+**Current incremental status, 2026-10-05:** the C-1 section records a collected,
+fail-closed storage-admission containment fix. The October 2 source identities,
+counts and probe results below remain historical evidence for that snapshot;
+they do not describe the later containment candidate or close the host protocol.
+
 **DEX revalidated 2026-10-02.** DEX `master`, `origin/master`, requested baseline, and current source
 are `94d82a7adf258dbb08fe3a62668373a1d8339d67`; `94d82a7..HEAD` is empty. The baseline is
 documentation-only relative to runtime `416855d14ab605450bdf4ead92b66ded5e931330`, and the complete
@@ -60,6 +65,24 @@ client quote is evidence of user intent, **not a service-enforced price/terms lo
 ## Findings and impact
 
 ### C-1 — High, activation blocker: separate windows can submit the same Nexus job twice
+
+**2026-10-05 containment update:** `configureStore` no longer admits
+`updateStorageAcknowledged` into the hydrate-once snapshot coordinator. A fulfilled
+snapshot-write Promise cannot establish cross-window authority. The production
+module now keeps journal writes/funding read-only even if a host exposes that
+acknowledgement-only method; cached journal inspection and native settings remain
+available. Default-collected configure-store regressions use two real persistence
+coordinators, stores and controllers with shared serialized locks and mocked host
+storage/wallet transport. Before containment they reproduced two mocked debits;
+after containment both calls reject before storage or wallet mutation, and a third
+context still reads the untouched draft. Funding validation deliberately succeeds
+in the fixture, so deployment rejection does not mask this boundary.
+
+This is a narrow admission fix, **not completion of C-1/C-2/C-7**. Authoritative
+CAS/operation readback, settings isolation, bound one-shot invocation and the
+revisioned-fake-host/real-wallet acceptance matrix remain unimplemented. The older
+probes and line references below describe the pre-containment implementation.
+`ACCEPTED_DEPLOYMENTS` remains empty.
 
 **Code:** `src/swap/persistence.js:4-9,33-45`; `src/swap/jobs.js:127-145`;
 `src/swap/controller.js:162-181`.

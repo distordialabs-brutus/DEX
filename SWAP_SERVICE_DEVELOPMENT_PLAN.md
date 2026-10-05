@@ -8,6 +8,27 @@ Read [the repository vision](vision.md) and [Distordia alignment/dependency map]
 
 **Date:** 2026-09-07; DEX implementation status re-reviewed 2026-10-02 at `master`/`origin/master` `94d82a7adf258dbb08fe3a62668373a1d8339d67`. There are no commits or tracked implementation changes after that requested baseline, which is itself documentation-only relative to runtime `416855d14ab605450bdf4ead92b66ded5e931330`. The dedicated 36-file runtime manifest still passes in full. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but authoritative cross-window journal persistence, context-bound one-shot wallet mutation, clean Redux hydration, rendered UI evidence, target-wallet/live-node acceptance, and M5 remain incomplete. Accepted progress since the runtime baseline is limited to the versioned host contract, durable-operation/uncertain-acknowledgement semantics, settings isolation, immutable-identity rules, and an executable two-context acceptance matrix; these are design requirements, not implemented host capability. **Basis:** [October 2 DEX review](DEVELOPMENT_REVIEW_2026-10-02.md), [host storage and mutation-handoff contract](docs/HOST_STORAGE_CONTRACT.md), [current cross-repository evaluation](SWAP_SERVICE_EVALUATION.md), and [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). Existing Nexus Interface dependency constraints remain in force; no dependency install or upgrade was performed.
 
+## 2026-10-05 narrow C-1 admission containment
+
+Removed production admission of the acknowledgement-only snapshot writer in
+`src/configureStore.js`. Default-collected `__tests__/configureStore.test.js`
+regressions reproduce the old two-controller duplicate and now require zero
+mocked debits/writes, unchanged restart state, blocked journal admission, continued
+inspection and existing native settings behavior. This advances **O4** recoverable
+wallet settlement for the explicit non-Atlas wallet/bridge hypothesis. DEX owns the
+admission boundary; keys, consent and dispatch remain wallet-owned. No dependency
+versions, accepted deployments, custody or human release authority change.
+
+This is containment only: C-1/C-2/C-7 and the following batch exits remain open.
+NexusInterface/SDK authoritative CAS, receipts and bound invocation are upstream
+prerequisites; revisioned-host and installed-wallet acceptance remain required.
+No real financial transport is used or authorized. See the maintained evaluation
+for scope; the October 2 evidence below is historical for its stated snapshot.
+Local verification after a clean `npm ci`: 4/4 focused configure-store tests,
+42/42 Jest tests with coverage and 110/110 swap tests passed. Both lint gates,
+production build and all 12 manifest files passed; existing Redux diagnostics,
+lint/build warnings and dependency audit findings remain separate open debt.
+
 ## Current execution order — 2026-10-02
 
 The October 2 review confirms no implementation progress after `94d82a7`. Fresh gates remain green
