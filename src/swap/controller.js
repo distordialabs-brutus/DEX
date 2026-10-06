@@ -172,6 +172,9 @@ function createSwapController({store, nexus, solana, validateFunding, loadScope}
 
       job = tx.update(id, current => ({...current, state: 'submission_unknown', submissionStartedAt: new Date().toISOString()}));
       await tx.commit();
+      // Intent acknowledgement also awaits the host. Keep the committed unknown
+      // state on a scope change; never reset to draft or infer safe resubmission.
+      await assertScope(job);
       const debit = await nexus.submitDebit(clone(job));
       await assertScope(job);
       if (!debit || typeof debit.txid !== 'string' || debit.txid.length === 0) {

@@ -2,8 +2,9 @@
 
 **Current incremental status, 2026-10-06:** C-1 records a collected, fail-closed
 storage-admission containment fix; C-2 records a journal-fault hold that also blocks
-legacy settings writes; C-7 now records a post-validation scope guard before intent
-persistence. The October 2 source identities, counts and probe results below remain
+legacy settings writes; C-7 now records scope guards after validation and after
+intent acknowledgement, before wallet invocation. The October 2 source identities,
+counts and probe results below remain
 historical evidence for that snapshot; they do not describe these later containment
 candidates or close the host protocol.
 
@@ -260,6 +261,24 @@ host-owned one-shot invocation remain unimplemented. The test's explicitly injec
 acknowledgement writer is not admitted by production `configureStore`; deployment
 and storage gates stay closed. No real wallet transport or funds are used. The
 following code references and validation-time probe describe the older snapshot.
+
+**2026-10-06 post-intent containment update:** the remaining asynchronous intent
+acknowledgement window is now checked too. After the intent commit returns,
+`submitNexus` rereads wallet/network scope before invoking the debit adapter. A
+profile, Nexus network or Solana genesis change, or unavailable/rejected scope read,
+prevents the wallet call while retaining the committed `submission_unknown`.
+Restart and restoration of the original scope do not permit automatic resubmission;
+the guard deliberately does not infer safe cancellation or rewrite the intent.
+Three default-collected regressions failed on the previous controller with one
+mocked debit each; the new guard prevents all three. The 11 focused controller
+cases also cover scope-read failures, delayed-ack stable-scope success, unchanged
+foreign envelope fields and restart/no-resubmit. The full candidate passes 59 Jest
+tests with coverage, 110 swap tests, both lint gates and the production build.
+
+This is containment, not context-bound dispatch: another scope switch after the
+reread is still possible. Authoritative host CAS/receipts, legacy-writer isolation
+and one-shot invocation remain missing. Production admission and deployment gates
+stay closed; all financial boundaries were mocked. C-1/C-2/C-7 remain unresolved.
 
 **Code:** `src/swap/controller.js:162-180`; `src/swap/nexus.js` secure mutation boundary;
 `src/swap/runtime.js:48-68`.

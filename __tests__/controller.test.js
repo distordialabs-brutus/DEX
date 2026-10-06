@@ -42,8 +42,22 @@ function harness() {
       nexus: { submitDebit: debit }, solana: {}, validateFunding, loadScope,
     });
   };
+  const delayNextAcknowledgement = () => {
+    let acknowledge;
+    let notifyWritten;
+    const written = new Promise(resolve => { notifyWritten = resolve; });
+    const acknowledgement = new Promise(resolve => { acknowledge = resolve; });
+    writer.mockImplementationOnce(async value => {
+      disk = clone(value);
+      notifyWritten();
+      await acknowledgement;
+      return true;
+    });
+    return { written, acknowledge };
+  };
   return {
     initial, writer, debit, loadScope, validateFunding, validating, finishValidation, openController,
+    delayNextAcknowledgement,
     readDisk: () => clone(disk),
     setScope: value => { currentScope = clone(value); },
   };
@@ -93,27 +107,94 @@ test.each([
   expect(h.openController().get(draft.id)).toEqual(draft);
 });
 
+test.each(['genesis', 'nexusNetwork', 'solanaGenesis'])(
+  '%s change during intent acknowledgement blocks debit and retains unknown on restart', async field => {
+    const h = harness();
+    const controller = h.openController();
+    const acknowledgement = h.delayNextAcknowledgement();
+    const submission = controller.submitNexus(draft.id);
+    await h.validating;
+    h.finishValidation();
+    await acknowledgement.written;
+    const intent = h.readDisk().swapJournal.jobs[0];
+    expect(intent.state).toBe('submission_unknown');
+    expect(h.debit).not.toHaveBeenCalled();
+
+    h.setScope({ ...scope, [field]: 'changed-context' });
+    const rejected = expect(submission).rejects.toThrow(/scope changed/i);
+    acknowledgement.acknowledge();
+    await rejected;
+
+    expect(h.debit).not.toHaveBeenCalled();
+    expect(h.writer).toHaveBeenCalledTimes(1);
+    expect(h.readDisk()).toEqual({ ...h.initial, swapJournal: { version: 1, jobs: [intent] } });
+    expect(controller.get(draft.id)).toEqual(intent);
+    h.setScope(scope);
+    const restarted = h.openController();
+    expect(restarted.get(draft.id)).toEqual(intent);
+    await expect(restarted.submitNexus(draft.id)).rejects.toThrow(/never retried/i);
+    expect(h.writer).toHaveBeenCalledTimes(1);
+    expect(h.debit).not.toHaveBeenCalled();
+  }
+);
+
+test.each([
+  ['unavailable', async () => null, /scope changed/i],
+  ['rejected', async () => { throw new Error('Scope lookup failed'); }, /scope lookup failed/i],
+])('%s post-intent scope read blocks debit and preserves committed unknown', async (name, readScope, error) => {
+  const h = harness();
+  const controller = h.openController();
+  const acknowledgement = h.delayNextAcknowledgement();
+  const submission = controller.submitNexus(draft.id);
+  await h.validating;
+  h.finishValidation();
+  await acknowledgement.written;
+  const intent = h.readDisk().swapJournal.jobs[0];
+  expect(intent.state).toBe('submission_unknown');
+  h.loadScope.mockImplementation(readScope);
+  const rejected = expect(submission).rejects.toThrow(error);
+  acknowledgement.acknowledge();
+  await rejected;
+
+  expect(h.loadScope).toHaveBeenCalledTimes(3);
+  expect(h.debit).not.toHaveBeenCalled();
+  expect(h.writer).toHaveBeenCalledTimes(1);
+  expect(h.readDisk()).toEqual({ ...h.initial, swapJournal: { version: 1, jobs: [intent] } });
+  expect(controller.get(draft.id)).toEqual(intent);
+  h.loadScope.mockImplementation(async () => clone(scope));
+  const restarted = h.openController();
+  expect(restarted.get(draft.id)).toEqual(intent);
+  await expect(restarted.submitNexus(draft.id)).rejects.toThrow(/never retried/i);
+  expect(h.writer).toHaveBeenCalledTimes(1);
+  expect(h.debit).not.toHaveBeenCalled();
+});
+
 test('unchanged scope persists intent before one debit and retains its identity on restart', async () => {
   const h = harness();
   const controller = h.openController();
+  const acknowledgement = h.delayNextAcknowledgement();
   h.debit.mockImplementation(async job => {
     expect(h.readDisk().swapJournal.jobs[0]).toEqual(job);
     expect(job.state).toBe('submission_unknown');
     expect(job.submissionStartedAt).toEqual(expect.any(String));
-    expect(h.loadScope).toHaveBeenCalledTimes(2);
+    expect(h.loadScope).toHaveBeenCalledTimes(3);
     expect(h.writer).toHaveBeenCalledTimes(1);
     return { txid: 'mock-debit' };
   });
   const submission = controller.submitNexus(draft.id);
   await h.validating;
   h.finishValidation();
+  await acknowledgement.written;
+  expect(h.debit).not.toHaveBeenCalled();
+  expect(h.loadScope).toHaveBeenCalledTimes(2);
+  acknowledgement.acknowledge();
   const submitted = await submission;
 
   expect(submitted.state).toBe('awaiting_service_credit');
   expect(submitted.debitTxid).toBe('mock-debit');
   expect(h.readDisk()).toEqual({ ...h.initial, swapJournal: { version: 1, jobs: [submitted] } });
   expect(h.debit).toHaveBeenCalledTimes(1);
-  expect(h.loadScope).toHaveBeenCalledTimes(3);
+  expect(h.loadScope).toHaveBeenCalledTimes(4);
   const restarted = h.openController();
   expect(restarted.get(draft.id)).toEqual(submitted);
   await expect(restarted.submitNexus(draft.id)).rejects.toThrow(/never retried/i);

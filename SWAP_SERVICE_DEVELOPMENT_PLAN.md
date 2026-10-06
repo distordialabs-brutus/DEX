@@ -93,6 +93,38 @@ build passed. Existing Redux diagnostics, 21 lint warnings, three bundle warning
 stale Browserslist data and 67 audit findings remain separate debt. Local Node is
 22.23.2; repository CI uses Node 20. Installed-wallet acceptance remains unproven.
 
+## 2026-10-06 narrow C-7 post-intent scope guard
+
+The first-priority host/context group remains unresolved after `73fbebc`. Its
+post-validation guard does not cover a profile/network switch while the intent
+write acknowledgement is pending. This increment adds a scope reread in
+`src/swap/controller.js` after intent commit and before `nexus.submitDebit`.
+Observed scope changes or unavailable/rejected reads stop with zero mocked debits.
+The already committed `submission_unknown` remains intact, including on restart;
+no reset to draft, automatic resend or additional write is introduced.
+
+**Traceability:** O4 attributable, recoverable wallet settlement; explicit non-Atlas
+wallet/bridge hypothesis; DEX owns the controller containment. The scheduled
+maintainer implements and verifies this candidate; repository human maintainers
+retain release approval, wallet owners retain keys and consent, and providers
+retain the separate custody/counterparty boundary. No real transport, accepted
+deployment, dependency version or custody change is introduced. Authoritative
+NexusInterface/SDK CAS, operation receipts, legacy-writer isolation and context-bound
+one-shot invocation remain upstream prerequisites. The remaining reread-to-dispatch
+race cannot be closed by this DEX-only guard; C-1/C-2/C-7 and batch exits stay open.
+
+**Collected evidence:** three changed-scope regressions failed before the guard
+because the old controller invoked the mocked debit once. Afterward all 11 focused
+controller cases pass. Real persistence/job-store/controller instances and a
+mocked host with a delayed intent acknowledgement cover all three scope fields,
+unavailable/rejected post-intent reads, envelope/restart preservation, refusal to
+resubmit even after restoring scope, and stable-scope intent-before-debit. After
+`npm ci`, `npm test -- --ci --coverage --runInBand` passed 59/59 and
+`npm run test:swap` passed 110/110; both lint gates and production build passed.
+Existing Redux diagnostics, 21 lint warnings, three bundle warnings, stale
+Browserslist data and 70 dependency audit findings remain separate debt. Local
+Node is 22.23.2; CI uses Node 20. Installed-wallet acceptance remains unproven.
+
 ## Current execution order — 2026-10-02
 
 The October 2 review confirms no implementation progress after `94d82a7`. Fresh gates remain green
