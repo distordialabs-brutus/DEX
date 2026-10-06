@@ -166,6 +166,9 @@ function createSwapController({store, nexus, solana, validateFunding, loadScope}
       if (job.state !== 'draft') throw new Error(`Nexus debit cannot be submitted from ${job.state}; ambiguous submissions are never retried.`);
       await assertScope(job);
       await validateFunding(clone(job));
+      // Validation awaits host/chain reads. Reject an observed context change
+      // before intent persistence; this does not replace host-bound dispatch.
+      await assertScope(job);
 
       job = tx.update(id, current => ({...current, state: 'submission_unknown', submissionStartedAt: new Date().toISOString()}));
       await tx.commit();

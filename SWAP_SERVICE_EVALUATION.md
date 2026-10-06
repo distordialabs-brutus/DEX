@@ -1,10 +1,11 @@
 # DEX ↔ swapService bridge functionality and security evaluation
 
-**Current incremental status, 2026-10-05:** the C-1 section records a collected,
-fail-closed storage-admission containment fix; C-2 records a subsequent journal-fault
-hold that also blocks legacy settings writes. The October 2 source identities,
-counts and probe results below remain historical evidence for that snapshot;
-they do not describe these later containment candidates or close the host protocol.
+**Current incremental status, 2026-10-06:** C-1 records a collected, fail-closed
+storage-admission containment fix; C-2 records a journal-fault hold that also blocks
+legacy settings writes; C-7 now records a post-validation scope guard before intent
+persistence. The October 2 source identities, counts and probe results below remain
+historical evidence for that snapshot; they do not describe these later containment
+candidates or close the host protocol.
 
 **DEX revalidated 2026-10-02.** DEX `master`, `origin/master`, requested baseline, and current source
 are `94d82a7adf258dbb08fe3a62668373a1d8339d67`; `94d82a7..HEAD` is empty. The baseline is
@@ -240,6 +241,25 @@ cancel the non-draft job, and has no safe reopen control.
   be labelled refunded without attributable evidence.
 
 ### C-7 — High activation blocker: committed storage does not bind wallet mutation context
+
+**2026-10-06 narrow guard update:** `submitNexus` now rereads scope after
+asynchronous funding validation and before changing or committing the draft.
+Observed changes to profile/genesis, Nexus network or Solana genesis reject before
+any storage write or wallet debit. An unavailable/rejected scope read also stops;
+the unchanged draft remains inspectable and survives restart. Default-collected
+`__tests__/controller.test.js` exercises the real coordinator, job store and
+controller with delayed validation and mocked host boundaries. Three regressions
+failed before the fix; all six focused cases pass after it, including scope-read
+failures and a stable-scope intent-before-debit/restart/no-resubmit control. The
+full candidate passes 54 Jest tests with coverage, 110 swap tests, both lint gates
+and the production build.
+
+This is the necessary module-side reread, **not host context binding or closure of
+C-7**. The final check-to-commit/dispatch race, authoritative CAS/receipts and
+host-owned one-shot invocation remain unimplemented. The test's explicitly injected
+acknowledgement writer is not admitted by production `configureStore`; deployment
+and storage gates stay closed. No real wallet transport or funds are used. The
+following code references and validation-time probe describe the older snapshot.
 
 **Code:** `src/swap/controller.js:162-180`; `src/swap/nexus.js` secure mutation boundary;
 `src/swap/runtime.js:48-68`.

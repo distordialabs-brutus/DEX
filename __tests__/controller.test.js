@@ -1,0 +1,121 @@
+/** @jest-environment node */
+
+import { createModulePersistence } from '../src/swap/persistence';
+import { createJobStore } from '../src/swap/jobs';
+import { createSwapController } from '../src/swap/controller';
+
+const clone = value => JSON.parse(JSON.stringify(value));
+const scope = { genesis: 'profile-A', nexusNetwork: 'testnet', solanaGenesis: 'solana-test' };
+const draft = {
+  id: 'scope-switch-job', reference: '1', scope, direction: 'nexus-to-solana', state: 'draft',
+  provider: { address: 'provider', owner: 'owner' },
+  quote: { inputUnits: '1000000', outputUnits: '997500' },
+  nexusAccount: 'source-account', solanaAccount: 'destination-account',
+  nexusMinConfirmations: 6, expiresAt: 2000000000000,
+};
+
+function harness() {
+  const initial = { settings: { timeSpan: '1d' }, swapJournal: { version: 1, jobs: [draft] }, future: { version: 2 } };
+  let disk = clone(initial);
+  let currentScope = clone(scope);
+  let finishValidation;
+  let validationStarted;
+  const validating = new Promise(resolve => { validationStarted = resolve; });
+  const validation = new Promise(resolve => { finishValidation = resolve; });
+  const validateFunding = jest.fn(() => { validationStarted(); return validation; });
+  // Explicit unit-test injection, not production admission of a snapshot writer.
+  // Real coordinators/stores/controllers run; only host boundaries are mocked.
+  const writer = jest.fn(async value => { disk = clone(value); return true; });
+  const debit = jest.fn(async () => ({ txid: 'mock-debit' }));
+  const loadScope = jest.fn(async () => clone(currentScope));
+  let queue = Promise.resolve();
+  const locks = { request: (name, options, callback) => {
+    const operation = queue.then(callback);
+    queue = operation.catch(() => {});
+    return operation;
+  } };
+  const openController = () => {
+    const persistence = createModulePersistence(writer);
+    persistence.hydrate(disk);
+    return createSwapController({
+      store: createJobStore({ persistence, locks }),
+      nexus: { submitDebit: debit }, solana: {}, validateFunding, loadScope,
+    });
+  };
+  return {
+    initial, writer, debit, loadScope, validateFunding, validating, finishValidation, openController,
+    readDisk: () => clone(disk),
+    setScope: value => { currentScope = clone(value); },
+  };
+}
+
+test.each(['genesis', 'nexusNetwork', 'solanaGenesis'])(
+  '%s change during asynchronous funding validation blocks intent and debit', async field => {
+    const h = harness();
+    const controller = h.openController();
+    const submission = controller.submitNexus(draft.id);
+    await h.validating;
+    expect(h.writer).not.toHaveBeenCalled();
+    expect(h.debit).not.toHaveBeenCalled();
+    h.setScope({ ...scope, [field]: 'changed-context' });
+    const rejected = expect(submission).rejects.toThrow(/scope changed/i);
+    h.finishValidation();
+    await rejected;
+
+    expect(h.validateFunding).toHaveBeenCalledTimes(1);
+    expect(h.loadScope).toHaveBeenCalledTimes(2);
+    expect(h.writer).not.toHaveBeenCalled();
+    expect(h.debit).not.toHaveBeenCalled();
+    expect(h.readDisk()).toEqual(h.initial);
+    expect(controller.get(draft.id)).toEqual(draft);
+    expect(h.openController().get(draft.id)).toEqual(draft);
+  }
+);
+
+test.each([
+  ['unavailable', async () => null, /scope changed/i],
+  ['rejected', async () => { throw new Error('Scope lookup failed'); }, /scope lookup failed/i],
+])('%s post-validation scope read blocks intent and debit', async (name, readScope, error) => {
+  const h = harness();
+  const controller = h.openController();
+  const submission = controller.submitNexus(draft.id);
+  await h.validating;
+  h.loadScope.mockImplementation(readScope);
+  const rejected = expect(submission).rejects.toThrow(error);
+  h.finishValidation();
+  await rejected;
+
+  expect(h.loadScope).toHaveBeenCalledTimes(2);
+  expect(h.writer).not.toHaveBeenCalled();
+  expect(h.debit).not.toHaveBeenCalled();
+  expect(h.readDisk()).toEqual(h.initial);
+  expect(controller.get(draft.id)).toEqual(draft);
+  expect(h.openController().get(draft.id)).toEqual(draft);
+});
+
+test('unchanged scope persists intent before one debit and retains its identity on restart', async () => {
+  const h = harness();
+  const controller = h.openController();
+  h.debit.mockImplementation(async job => {
+    expect(h.readDisk().swapJournal.jobs[0]).toEqual(job);
+    expect(job.state).toBe('submission_unknown');
+    expect(job.submissionStartedAt).toEqual(expect.any(String));
+    expect(h.loadScope).toHaveBeenCalledTimes(2);
+    expect(h.writer).toHaveBeenCalledTimes(1);
+    return { txid: 'mock-debit' };
+  });
+  const submission = controller.submitNexus(draft.id);
+  await h.validating;
+  h.finishValidation();
+  const submitted = await submission;
+
+  expect(submitted.state).toBe('awaiting_service_credit');
+  expect(submitted.debitTxid).toBe('mock-debit');
+  expect(h.readDisk()).toEqual({ ...h.initial, swapJournal: { version: 1, jobs: [submitted] } });
+  expect(h.debit).toHaveBeenCalledTimes(1);
+  expect(h.loadScope).toHaveBeenCalledTimes(3);
+  const restarted = h.openController();
+  expect(restarted.get(draft.id)).toEqual(submitted);
+  await expect(restarted.submitNexus(draft.id)).rejects.toThrow(/never retried/i);
+  expect(h.debit).toHaveBeenCalledTimes(1);
+});

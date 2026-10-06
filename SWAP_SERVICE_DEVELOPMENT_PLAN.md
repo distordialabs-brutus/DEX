@@ -61,6 +61,38 @@ Existing Redux diagnostics, 21 repository lint warnings, bundle warnings and
 67 dependency audit findings remain unrelated open debt. Installed-wallet and
 revisioned multi-context acceptance are still required before later batches.
 
+## 2026-10-06 narrow C-7 post-validation scope guard
+
+Following C-1/C-2 containment at `8605427`, the first-priority host/context group
+still includes the observed validation-time profile-switch defect. This increment
+changes only `submitNexus` in `src/swap/controller.js`: reread wallet/network scope
+after asynchronous funding validation and before updating or committing intent.
+An observed profile, Nexus network or Solana genesis change, an unavailable scope,
+or a rejected scope read stops without storage writes or a wallet debit; the draft
+remains unchanged in the coordinator and on restart. Stable scope retains the
+intent-before-debit and no-blind-resubmit behavior.
+
+**Traceability:** O4 attributable, recoverable wallet settlement; explicit non-Atlas
+wallet/bridge hypothesis; DEX owns this controller guard. The scheduled maintainer
+implements/verifies the local candidate; repository human maintainers retain release
+approval and wallet owners retain keys/consent. No real financial transport,
+dependency upgrade, custody or accepted deployment is introduced.
+NexusInterface/SDK authoritative CAS, durable operation receipts, legacy-writer
+isolation and context-bound one-shot invocation remain upstream prerequisites.
+This reread cannot bind dispatch or detect a context switch after it; it is not
+completion of C-7 or the C-1/C-2/C-7 batch. Keep funding disabled.
+
+**Collected evidence:** three changed-scope regressions failed on the old controller
+and passed after the guard. Default-collected `__tests__/controller.test.js` uses
+real persistence/job-store/controller instances with mocked host boundaries and a
+deterministically delayed validator. Six focused cases cover all three scope fields,
+unavailable/rejected scope read, unchanged-scope intent-before-debit, envelope
+preservation and restart/no-resubmit. After `npm ci`, the full coverage run passed
+54/54 Jest tests and the swap suite passed 110/110; both lint gates and production
+build passed. Existing Redux diagnostics, 21 lint warnings, three bundle warnings,
+stale Browserslist data and 67 audit findings remain separate debt. Local Node is
+22.23.2; repository CI uses Node 20. Installed-wallet acceptance remains unproven.
+
 ## Current execution order — 2026-10-02
 
 The October 2 review confirms no implementation progress after `94d82a7`. Fresh gates remain green
