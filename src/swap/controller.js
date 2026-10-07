@@ -255,6 +255,9 @@ function createSwapController({store, nexus, solana, validateFunding, loadScope}
         job = tx.update(id, current => ({...current, mappingStartedAt: new Date().toISOString()}));
         await tx.commit();
       }
+      // Mapping intent acknowledgement may outlive the original wallet context.
+      // Retain uncertain intent on failure; this reread is not host-bound dispatch.
+      await assertScope(job);
       const mapping = await nexus.publishMapping(clone(job), {allowCreate: !job.mappingAddress && !job.mappingTxid});
       await assertScope(job);
       if (!mapping || typeof mapping.address !== 'string' || mapping.address.length === 0) {

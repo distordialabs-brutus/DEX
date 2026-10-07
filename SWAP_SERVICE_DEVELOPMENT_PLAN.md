@@ -125,6 +125,39 @@ Existing Redux diagnostics, 21 lint warnings, three bundle warnings, stale
 Browserslist data and 70 dependency audit findings remain separate debt. Local
 Node is 22.23.2; CI uses Node 20. Installed-wallet acceptance remains unproven.
 
+## 2026-10-07 narrow C-7 post-mapping-intent scope guard
+
+The first-priority host/context group remains open after `e6ac4fe`. The debit
+scope guards do not cover `repairMapping`: a profile/network change while its
+mapping-intent acknowledgement is pending could still invoke `publishMapping`
+before the existing post-call check. This increment rereads scope in
+`src/swap/controller.js` after intent acknowledgement and before that adapter.
+Scope changes and unavailable/rejected reads stop publication without rewriting
+`mapping_unknown` or clearing `mappingStartedAt`. Restart and scope restoration
+retain the manual-recovery requirement; no automatic create or debit retry occurs.
+Exact manually verified mapping identities remain recoverable.
+
+**Traceability:** O4 attributable, recoverable wallet settlement; explicit non-Atlas
+wallet/bridge hypothesis; DEX owns controller containment. The scheduled maintainer
+implements/verifies the candidate; repository human maintainers retain release
+approval, wallet owners retain keys/consent and providers retain custody risk.
+No real financial transport, dependency version or accepted deployment changes.
+NexusInterface/SDK authoritative CAS, durable receipts, legacy-writer isolation and
+context-bound one-shot invocation remain upstream prerequisites. This module reread
+cannot bind the adapter's later async reads/dispatch or close C-1/C-2/C-7. Funding
+stays disabled; installed-wallet and multi-context host acceptance remain unproven.
+
+**Collected evidence:** three regressions first failed with one mocked publication
+each on the prior controller, then passed after the guard. The 17 focused controller
+cases include six mapping cases covering all three scope fields, unavailable/rejected
+reads, exact envelope/first-source preservation, restart/no-retry, verified manual
+recovery and unchanged-scope intent-before-publication. Real coordinators/stores and
+controllers run against mocked host boundaries. After `npm ci`, full coverage passed
+65/65 Jest tests; 110/110 swap tests, both lint gates, production build and all 12
+manifest files passed. Existing Redux diagnostics, 21 lint warnings, three bundle
+warnings, stale Browserslist data and 70 audit findings remain separate debt.
+Local Node is 22.23.2; CI uses Node 20. This is containment, not release acceptance.
+
 ## Current execution order — 2026-10-02
 
 The October 2 review confirms no implementation progress after `94d82a7`. Fresh gates remain green

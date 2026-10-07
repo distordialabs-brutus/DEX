@@ -1,10 +1,10 @@
 # DEX ↔ swapService bridge functionality and security evaluation
 
-**Current incremental status, 2026-10-06:** C-1 records a collected, fail-closed
+**Current incremental status, 2026-10-07:** C-1 records a collected, fail-closed
 storage-admission containment fix; C-2 records a journal-fault hold that also blocks
 legacy settings writes; C-7 now records scope guards after validation and after
-intent acknowledgement, before wallet invocation. The October 2 source identities,
-counts and probe results below remain
+intent acknowledgement, before debit invocation, plus a post-intent mapping guard.
+The October 2 source identities, counts and probe results below remain
 historical evidence for that snapshot; they do not describe these later containment
 candidates or close the host protocol.
 
@@ -279,6 +279,23 @@ This is containment, not context-bound dispatch: another scope switch after the
 reread is still possible. Authoritative host CAS/receipts, legacy-writer isolation
 and one-shot invocation remain missing. Production admission and deployment gates
 stay closed; all financial boundaries were mocked. C-1/C-2/C-7 remain unresolved.
+
+**2026-10-07 mapping-intent containment update:** `repairMapping` now rereads
+scope after its mapping-intent acknowledgement and before `publishMapping`.
+Three default-collected regressions reproduced a mocked publication despite a
+profile, Nexus network or Solana genesis change during that wait. The guard blocks
+all three, plus unavailable/rejected scope reads, while preserving `mapping_unknown`,
+`mappingStartedAt`, first debit/source identities and foreign envelope fields on
+restart. Scope restoration does not authorize another mapping create. Exact
+manually verified recovery and stable-scope intent-before-publication still work.
+The 17 focused controller cases and full 65-test Jest coverage run pass, as do
+110 swap tests, both lint gates, build and all 12 manifest files.
+
+This is another narrow C-7 containment, not host-bound mapping dispatch. Async
+adapter reads and the final scope-check-to-dispatch race remain unbound; authoritative
+CAS/receipts, settings isolation and one-shot invocation remain upstream requirements.
+Funding/deployment gates stay closed, no dependencies change and no real financial
+transport is used. C-1/C-2/C-7 and supported-wallet acceptance remain open.
 
 **Code:** `src/swap/controller.js:162-180`; `src/swap/nexus.js` secure mutation boundary;
 `src/swap/runtime.js:48-68`.
