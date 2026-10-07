@@ -6,7 +6,7 @@ The master Distordia project also owns `PORTFOLIO_DEVELOPMENT_PLAN.md` and its s
 
 ## Accountability venture context — not canonical authority
 
-[Staked Accountability Rails](../../projects/Distordia/staked-accountability-rails.md) and [Infrastructure Buildout](../../projects/Distordia/infrastructure-buildout.md) are venture hypotheses and dependency-design context. They do not amend canonical strategy or prove enforceable collateral/slashing, non-custody, regulatory status, reputation, or adoption. Interpret unresolved claims through the master portfolio decision register (SD-002–SD-008); feasibility, legal assessment and human decisions remain required.
+Local master-workspace context (not published by this repository): `Distordia/staked-accountability-rails.md` and `Distordia/infrastructure-buildout.md`. These are venture hypotheses and dependency-design context. They do not amend canonical strategy or prove enforceable collateral/slashing, non-custody, regulatory status, reputation, or adoption. [The repository alignment](docs/DISTORDIA_ALIGNMENT.md) carries the portable SD-002–SD-008 boundaries needed here; the local master register remains higher authority when doing portfolio work, but this publication does not require either local file. Feasibility, legal assessment and human decisions remain required.
 
 ## Purpose
 
@@ -55,7 +55,7 @@ Distordia should be a standard-setter, not a gatekeeper. For this module that me
 
 Decisions in this repository follow this order:
 
-1. **Canonical master strategy and customer evidence** — [Business Thesis and Strategy v2](../../projects/Distordia/Distordia_Labs_Business_Thesis_and_Strategy_v2.docx) and [Customer Problem Atlas v2](../../projects/Distordia/Distordia_Customer_Problem_Atlas_v2.docx). The master `PORTFOLIO_DEVELOPMENT_PLAN.md` records portfolio sequencing and explicit strategy decisions before this repository vision.
+1. **Canonical master strategy and customer evidence** — local master-workspace documents (not published by this repository): `Distordia/Distordia_Labs_Business_Thesis_and_Strategy_v2.docx` and `Distordia/Distordia_Customer_Problem_Atlas_v2.docx`. The local master `Distordia/PORTFOLIO_DEVELOPMENT_PLAN.md` records portfolio sequencing and explicit strategy decisions before this repository vision; [the repository alignment](docs/DISTORDIA_ALIGNMENT.md) carries the portable summary required to use this repository without those local-only files.
 2. **This repository vision** — translates that strategy into the Nexus DEX module's purpose and non-negotiable boundaries.
 3. **Architecture and development plans** — including [ARCHITECTURE.md](ARCHITECTURE.md), [Cross-chain swaps](docs/CROSS_CHAIN_SWAPS.md), and the [swapService client development plan](SWAP_SERVICE_DEVELOPMENT_PLAN.md); these define current design, sequencing, and acceptance evidence.
 4. **Implementation records** — issues, pull requests, code, tests, builds, deployments, and dated reviews execute and demonstrate the higher-level decisions; they do not redefine them implicitly.

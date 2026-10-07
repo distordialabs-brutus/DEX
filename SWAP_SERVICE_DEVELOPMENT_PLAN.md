@@ -6,7 +6,24 @@ Read [the repository vision](vision.md) and [Distordia alignment/dependency map]
 
 **Portfolio purpose:** O1 interoperable open interfaces; O4 attributable wallet settlement. User-wallet authorization and recoverable, independently inspectable settlement; no module custody. Native Nexus trading and provider-custodial cross-chain transfers stay visibly distinct. The alignment map supplies customer-evidence qualification, batch ownership, upstream prerequisites and human gates. Each material task must name those fields alongside its exact production paths and collected acceptance tests. This documentation alignment changes no runtime, test result or release status; dated evidence below remains evidence for its stated snapshot only.
 
-**Date:** 2026-09-07; DEX implementation status re-reviewed 2026-10-02 at `master`/`origin/master` `94d82a7adf258dbb08fe3a62668373a1d8339d67`. There are no commits or tracked implementation changes after that requested baseline, which is itself documentation-only relative to runtime `416855d14ab605450bdf4ead92b66ded5e931330`. The dedicated 36-file runtime manifest still passes in full. **Status:** M0/M1 substantially implemented and M2-M4 implemented behind release gates, but authoritative cross-window journal persistence, context-bound one-shot wallet mutation, clean Redux hydration, rendered UI evidence, target-wallet/live-node acceptance, and M5 remain incomplete. Accepted progress since the runtime baseline is limited to the versioned host contract, durable-operation/uncertain-acknowledgement semantics, settings isolation, immutable-identity rules, and an executable two-context acceptance matrix; these are design requirements, not implemented host capability. **Basis:** [October 2 DEX review](DEVELOPMENT_REVIEW_2026-10-02.md), [host storage and mutation-handoff contract](docs/HOST_STORAGE_CONTRACT.md), [current cross-repository evaluation](SWAP_SERVICE_EVALUATION.md), and [implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). Existing Nexus Interface dependency constraints remain in force; no dependency install or upgrade was performed.
+**Date:** 2026-09-07; DEX implementation status reviewed 2026-10-07 at remote `master`
+`7a28fcdd97710901e4317fb62d4ffc268b8743ca`, covering the five runtime repair commits after
+`052b9ab56e37ba1f4162f7be2df759ee0f9380f3`. **Accepted boundary:** M0/M1 remain
+substantially implemented offline and M2-M4 remain behind release gates. The range adds three
+scope rereads and two storage-containment controls: acknowledgement-only writers are rejected for
+journal admission; one coordinator blocks stale settings after a journal fault; funding scope is
+rechecked after validation and after intent acknowledgement; and mapping scope is rechecked after
+mapping-intent acknowledgement. These are accepted DEX-local containment, not authoritative
+cross-window storage or context-bound dispatch. Production remains read-only because
+`configureStore` supplies no journal writer and `ACCEPTED_DEPLOYMENTS` is empty. NexusInterface/SDK
+revision/CAS storage, durable operation and invocation receipts, namespace/legacy-writer isolation,
+and context-bound one-shot debit and mapping mutations are still upstream prerequisites. Clean
+Redux projection, rendered UI evidence, service-contract acceptance, supported-wallet acceptance,
+live-node/test-network evidence and M5 remain incomplete. **Basis:** this exact-head review,
+[host storage and mutation-handoff contract](docs/HOST_STORAGE_CONTRACT.md),
+[current evaluation](SWAP_SERVICE_EVALUATION.md), and
+[implementation/operating boundary](docs/CROSS_CHAIN_SWAPS.md). No dependency install, upgrade,
+deployment, live transport, funds movement or release approval occurred.
 
 ## 2026-10-05 narrow C-1 admission containment
 
@@ -158,40 +175,37 @@ manifest files passed. Existing Redux diagnostics, 21 lint warnings, three bundl
 warnings, stale Browserslist data and 70 audit findings remain separate debt.
 Local Node is 22.23.2; CI uses Node 20. This is containment, not release acceptance.
 
-## Current execution order — 2026-10-02
+## Current execution order — exact-head 2026-10-07
 
-The October 2 review confirms no implementation progress after `94d82a7`. Fresh gates remain green
-(41 Jest tests with coverage, 110 swap tests, both lint gates, build, manifest and runtime hashes),
-but the real-controller multiwindow and lost-ack probes still reproduce C-1/C-2, the isolated signer
-probe still submits twice across separate browser namespaces, Redux hydration still emits three
-unknown-key errors, and no collected test mounts the swap component. A fresh real-controller probe
-also changes the active profile during asynchronous funding validation: the mocked debit is invoked
-once under the changed scope, and only the post-call scope check leaves `submission_unknown`. Keep
-`ACCEPTED_DEPLOYMENTS` empty. Do not treat a promise-returning host extension, Web Lock, pre-call
-module read, source/AST assertion, or prior CI run as closure.
+The five repairs through `7a28fcd` are accepted as **local containment**. Do not assign them again as
+unimplemented, and do not promote their mocked tests into host acceptance. The production path is
+intentionally read-only: the acknowledgement-only writer is rejected and the deployment registry is
+empty. The next work begins at the independent host boundary.
 
-1. **Host journal and invocation protocol first (C-1/C-2/C-7):** reproduce the real-controller two-window duplicate and
-   lost-ack/settings journal erasure in default-collected tests. Implement authoritative read,
-   revision/CAS and acknowledged updates across every module writer/context, or separate journal
-   ownership. Require one remote call for the same job and preservation of both windows’ jobs,
-   remote IDs and uncertain states through restart. Add a host-owned context-bound one-shot mutation
-   handoff tied to the committed intent; ordinary `secureApiCall(endpoint, params)` cannot close a
-   profile switch racing dispatch. The host permits one invocation claim per intent operation, not
-   merely one call per caller-chosen invocation ID. Correct Redux hydration without moving the
-   journal into reducer ownership.
-2. **Signing handoff (C-5):** coordinate attempts with durable wallet-owned state across contexts;
-   distinguish no-attempt handoff from unknown submission and verified source. Test browser-launch
-   failure, reopening, cleared storage, isolated profiles, consent and no unsafe cancellation.
-3. **Complete service policy (C-3/C-6):** publish and freeze max inputs, Nexus dust and actual
-   finality; guard dust/minimum configuration and retain positive custody obligations. Shared
-   fixtures must reject below/exact/above boundary mismatches before funding.
-4. **Receipt and backend acceptance (C-4/C-8):** close the receipt-enabled production-startup
-   contradiction without weakening source-bound proof. Repair backend total-loss authorization,
-   admission and operator-resolution gates. The minimum classifier and typed cap holds already
-   exist; their unsent DB-loss boundary is the reopened defect.
-5. **Rendered/host/live gates:** collect real UI interaction tests, then prove supported-wallet
-   durable storage and test-network settlement with exact candidate identities before M5.
-   Keep compatibility-controlled dependency work separate; no forced audit fixes.
+### Prioritized coding and ownership matrix
+
+| Priority / batch | Objective, evidence class and vision outcome | Production paths and owner | Upstream and human boundary |
+|---|---|---|---|
+| P0 / H1 — implement and accept host authority | O4; unvalidated non-Atlas wallet hypothesis; one authoritative, recoverable intent history across contexts, with no module custody | **NexusInterface/SDK owns** versioned read, CAS, durable operation receipts, journal/settings namespace isolation, and one invocation claim per committed intent. DEX's `docs/HOST_STORAGE_CONTRACT.md` is the consumer contract; no DEX mock closes H1. | Wallet maintainers choose and approve the host API/durability boundary. The human user still approves the displayed mutation; the module holds no keys. Keep DEX funding disabled until installed-wallet acceptance. |
+| P1 / D1 — consume CAS and project Redux safely | O4; same non-Atlas hypothesis; preserve intents/settings/unknown envelope fields and expose held uncertainty | **DEX owns** `src/configureStore.js`, `src/swap/persistence.js`, `src/swap/jobs.js`, `src/swap/runtime.js`, `src/reducers/index.js`, and default-collected integration tests. Replace hydrate-once write authority with pure transition plus bounded CAS/reconciliation. | Requires accepted H1 storage API and pinned SDK/wallet versions. Repository maintainers approve the compatibility change and migration; users retain signing authority. No dependency-wide upgrade belongs in this batch. |
+| P2 / D2+H2 — bind debit and mapping dispatch | O4; attributable settlement; each committed debit or mapping intent reaches the wallet boundary at most once in its exact context | **Host owns** context binding, PIN/dispatch binding and durable invocation receipt. **DEX owns** `src/swap/controller.js`, `src/swap/runtime.js`, and `src/swap/nexus.js` consumption for both `finance/debit/account` and `assets/create/asset`. | Requires H1 plus accepted host one-shot invocation. Wallet maintainers approve the new mutation API; repository maintainers approve caller migration; the user separately approves each consequential action. Provider custody remains explicit. |
+| P3 / U1 — rendered workflow and signer attempt authority | O1/O4; trustworthy visible authorization and recoverable external handoff, not UI-derived authority | **DEX owns** `src/App/stablecoinSwap.js`, `src/swap/signingPage.js` and a default-collected renderer suite. **Wallet/host owns** any cross-context durable signer-attempt claim. | Pin only renderer versions compatible with the supported wallet in a separate lockfile review. Human consent is required in each signer context; browser-local state cannot be described as global exactly-once authority. |
+| P4 / S1+R1 — service contract, target acceptance and enablement | O1/O4; complete public terms and exact settlement/disposition evidence for one configured classic-SPL/Nexus pair | **swapService/operator owns** public max/dust/finality/receipt/admission/recovery behavior. **DEX owns** provider parsing, frozen-policy checks, exact evidence display and `src/swap/deployment.js`. | Requires independently accepted service candidate plus supported installed-wallet, target-node and isolated test-network evidence. Named human wallet, service and release owners approve any deployment entry. No live funds or production enablement follows automatically. |
+
+### Executable negative, concurrency and recovery exits
+
+| Batch | Negative/boundary exit | Concurrency exit | Restart/recovery and external exit |
+|---|---|---|---|
+| H1 | Reject malformed context/revision/receipt, operation-ID reuse with different content, capacity/disk/serialization failure, stale legacy writer and wrong-context commit before mutation. | Two independent WebViews/processes race the same and different jobs/settings; observe one revision order, no lost update, and one invocation claim per intent even with fresh competing invocation IDs. | Kill the writer after commit and after dispatch; a third context reads exact revisions, operation/invocation receipts, unknown outcomes and immutable first identity. Repeat in each supported installed wallet; mocks do not close H1. |
+| D1 | `npm test -- --ci --runInBand __tests__/configureStore.test.js __tests__/persistence.test.js` must fail on unexpected Redux output and cover conflict, lost/rejected/malformed acknowledgement, invalid journal and unknown envelope fields. | Two real DEX coordinators against the revisioned host fixture preserve independent jobs and settings; stale candidates recompute after conflict and never overwrite. | Crash after intent and after identity commit; restart either reconciles exact operation/content or retains a visible no-send storage hold. Redux has exactly `ui/settings/nexus`; persistence receives the untouched envelope. |
+| D2+H2 | Scope unavailable/changed after validation, after intent, during adapter preflight/PIN/dispatch, malformed/empty wallet response and conflicting identity all fail closed. `rejected_before_invocation` is accepted only with host proof. | Two controllers, repeated invocation ID and fresh competing invocation IDs produce at most one mocked remote attempt for each debit or mapping intent; no wrong-context call occurs. | Crash before dispatch, after acceptance and before identity CAS, and after identity commit. Restart never resends; returned/unknown invocation receipt and exact manual proof are the only recovery inputs. Run the same matrix in the installed wallet with transport mocked. |
+| U1 | Render complete/incomplete/error discovery, address mismatch, stale quote/consent, storage/deployment block, every recovery control, launch-before-attempt failure and unmount cleanup. | Double activation, stale async generations, independent browser namespaces and profile switches never infer shared consent or a safe retry. | Reopen only from durable authority: proven no-attempt may restart handoff; any ambiguous attempt remains held. Then run the built module in the supported wallet; source/AST tests are insufficient. |
+| S1+R1 | Shared fixtures reject below/exact/above dust, minimum and maximum, changed terms, wrong identity/program/finality, partial or sibling evidence and incomplete history. | Two providers and two jobs under one owner preserve pair/provider isolation; observation and disposition workers cannot cross-complete jobs. | Restart at every handoff, provider outage, accepted-but-lost response and operator disposition. Capture exact DEX/wallet/node/service/provider revisions and readback. Only then may a human add one evidence-pinned accepted deployment. |
+
+Do not begin U1, signer work or release enablement by weakening P0-P2. H1 can be developed upstream in
+parallel with D1 fixture design, but D1/D2 acceptance requires the real host API and H1 installed-wallet
+evidence. Keep all financial transport mocked through H1/D2 and keep `ACCEPTED_DEPLOYMENTS` empty
+through S1/R1.
 
 ### Batch 1 coder contract — authoritative journal, bound mutation and Redux projection
 
@@ -294,15 +308,20 @@ A normalized provider model should distinguish:
 
 **Future target:** provider-v2 uses exact `distordia-type=swapService`, schema/service IDs, address-based instance isolation and a fuller public contract. Its builder/tests are now committed in swapService, but runtime publication remains v1. Agree its schema, field-size budget, migration rules and target-node query semantics jointly before enabling a v2 writer or reader as production infrastructure. Do not invent a v2-only discovery query and call existing v1 providers absent.
 
-**Upstream release dependencies:** the October 2 swapService review accepts four published restore
-repairs that hold inconsistent restored-source families without mocked transport. The separately
-staged sealed-custody candidate passes 947 tests but is not accepted: its executable attestation
-omits the root entrypoint/interpreter/package artifacts, heartbeat validation is not an exact asset
-identity contract, and genesis-only checks do not establish Solana or Nexus freshness/readiness.
-Complete policy/capacity scheduling, receipt, disposition and live-boundary evidence also remain
-open. Older September 22 service-policy evidence is historical input, not the current comparison.
-These are swapService responsibilities; a DEX parser or UI guard cannot substitute for service-side
-controls. Include exact published-candidate regression and live-boundary evidence in M5 acceptance.
+**Upstream release dependencies:** the current portfolio review, using the separate swapService
+exact-source review at published `origin/main` `2c4ed319d251836f01dfb83de68da71b1c6c6a23`, records a
+published sealed-image/witness runtime and finite in-process fingerprints for the root entrypoint,
+running interpreter, selected native mappings, installed `solders` extension and selected wrapper
+sources. Its fresh offline gate collected and passed 1,522 tests plus 77 subtests. That is bounded
+offline containment, not upstream release acceptance: external trusted pre-execution artifact
+authority, coherent restore/bootstrap authorization, exact service-record identity and Solana/Nexus
+freshness/readiness, eligible capacity progress, operational witness/hold disposition and target-
+infrastructure acceptance remain open. This DEX review did **not** inspect swapService and does not
+independently accept those upstream claims; it carries the portfolio/upstream review as a pinned
+dependency. Older 947-test staged-candidate and September 22 service-policy descriptions are
+historical inputs, not the current comparison. These remain swapService/operator responsibilities;
+a DEX parser, scope reread or UI guard cannot substitute for service-side controls. Include exact
+published-candidate regression and live-boundary evidence in M5 acceptance.
 
 ### Frozen job contract
 
@@ -350,14 +369,14 @@ Do not convert a timeout, missing lookup or changed balance into a terminal refu
 
 Status below distinguishes implementation/offline fixtures from target-wallet and live test-network evidence. A passing mocked suite does not satisfy a live acceptance criterion.
 
-| Milestone | 2026-10-02 status | Remaining exit evidence |
+| Milestone | 2026-10-07 status | Remaining exit evidence |
 |---|---|---|
-| M0 | **Substantially implemented offline** | Existing-tree verification passes 41 Jest + 110 swap tests, both lint gates, build, and the 12-file manifest check. It also reproduces three Redux errors; no collected test renders the component; and offline real-controller/coordinator probes expose cross-window journal loss/duplicate mutation plus a mocked wallet call before post-validation profile-change detection. Exact-head remote CI was not refreshed in this local review. Repair and collect those regressions before claiming the engineering baseline complete. |
+| M0 | **Substantially implemented offline; containment advanced** | Existing-tree verification passes 65 Jest + 110 reported Node tests, both lint gates and build. Focused storage/scope tests pass. Production rejects acknowledgement-only journal writers, and scope guards cover validation, intent acknowledgement and mapping-intent acknowledgement. Three Redux errors remain; no collected test renders the component; the CI-shaped manifest command was blocked by the execution wrapper. Exact-head remote CI was not refreshed. |
 | M1 | **Implemented offline** | Verify rendering, real list/filter/pagination shapes, provider selection, and read-only behavior inside supported Nexus Interface versions against a target node. |
-| M2 | **Partial / host-blocked** | Exact math/codecs and the journal exist, but current Nexus Interface cannot acknowledge durable storage; prove crash/restart, capacity, and profile-switch semantics in the host. |
-| M3 | **Implemented behind gates, offline only** | Exercise both directions with real test tokens, wallet rejection/timeouts, accepted-but-lost responses, and restart without duplicate sends. |
-| M4 | **Implemented behind gates, offline only** | Validate receipt/claim, mapping, deep history, outages, and restart recovery against real Nexus/Solana/service behavior. |
-| M5 | **Pending** | Complete all cross-repository acceptance and add an evidence-pinned deployment entry; no entry is currently accepted. |
+| M2 | **Partial / host-blocked** | Exact math/codecs and a module-local journal exist; current production intentionally admits no journal writer. Implement and accept host revision/CAS, durable operation receipts, settings isolation and restart/multi-context semantics, then consume them in DEX. |
+| M3 | **Implemented behind gates, offline only** | Consume a context-bound one-shot host mutation for debit and mapping publication; exercise both directions with real test tokens, wallet rejection/timeouts, accepted-but-lost responses, and restart without duplicate sends. |
+| M4 | **Implemented behind gates, offline only** | Validate receipt/claim, mapping, deep history, outages, disposition and restart recovery against accepted service and real Nexus/Solana behavior. |
+| M5 | **Pending** | Complete all cross-repository acceptance and add a human-approved, evidence-pinned deployment entry; no entry is currently accepted. |
 
 ### M0 — Containment, integration contract and executable regression baseline
 
@@ -432,11 +451,16 @@ Status below distinguishes implementation/offline fixtures from target-wallet an
 
 **Exit:** a user can discover a real test provider from a clean client, verify its pair and terms, authorize one transfer, survive restart and obtain exact finalized output evidence—or a truthful durable unresolved state. No real production funds are required for acceptance. Every evidence-dependent label is traceable to its source.
 
-## Recommended next development batches — 2026-10-02
+## Superseded recommendations — 2026-10-02 snapshot
 
-Execute these as acceptance-gated batches. Do not begin a later batch until the prior batch's named
-default-collected tests pass and the full offline gate is rerun. Keep all financial transport mocked
-through Batch 6 and keep `ACCEPTED_DEPLOYMENTS` empty through Batch 7.
+The numbered list below is retained as historical planning context only. It is **not a current coder
+entry point**: its first failure-collection and narrow scope-guard work shipped in the five commits
+through `7a28fcd`. Use the 2026-10-07 H1/D1/D2+H2/U1/S1+R1 ownership and exit matrices above. In
+particular, do not add another module-side acknowledgement wrapper or scope reread and call the host
+gate complete.
+
+At the October 2 snapshot, the intended sequence was acceptance-gated. It kept financial transport
+mocked through Batch 6 and `ACCEPTED_DEPLOYMENTS` empty through Batch 7:
 
 1. **Batch 1 — collect the failures without changing behavior:** convert the retained
    `persistence-lifecycle`, `controller-two-window`, and context-switch probes into default-collected

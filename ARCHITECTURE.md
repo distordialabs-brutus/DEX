@@ -6,45 +6,50 @@ Read [the repository vision](vision.md) and [Distordia alignment/dependency map]
 
 **Portfolio purpose:** O1 interoperable open interfaces; O4 attributable wallet settlement. User-wallet authorization and recoverable, independently inspectable settlement; no module custody. Native Nexus trading and provider-custodial cross-chain transfers stay visibly distinct. The alignment map supplies customer-evidence qualification, batch ownership, upstream prerequisites and human gates. Each material task must name those fields alongside its exact production paths and collected acceptance tests. This documentation alignment changes no runtime, test result or release status; dated evidence below remains evidence for its stated snapshot only.
 
-## Current development review — 2026-10-02
+## Current exact-head review — 2026-10-07
 
-The [October 2 review](DEVELOPMENT_REVIEW_2026-10-02.md) revalidates `master` and
-`origin/master` at the requested baseline and current head
-`94d82a7adf258dbb08fe3a62668373a1d8339d67`. The range `94d82a7..HEAD` is empty: there is no
-accepted coding progress after the baseline. That baseline itself changes maintained Markdown only
-relative to its parent, and the complete runtime delta from
-`416855d14ab605450bdf4ead92b66ded5e931330` remains Markdown/SHA-256 evidence only. The dedicated
-36-file runtime manifest passes in full.
+This review pins the sanitized `distordialabs-brutus/DEX` `master` remote at
+`7a28fcdd97710901e4317fb62d4ffc268b8743ca` and assesses the five commits after
+`052b9ab56e37ba1f4162f7be2df759ee0f9380f3`. The accepted runtime delta is deliberately narrow:
 
-Fresh offline execution passes the complete configured gates: 5 Jest suites / 41 tests with
-coverage, 110 swap tests, strict swap lint, repository lint at 0 errors / 21 warnings, both
-production bundles, all 12 manifest-file checks, and all 36 runtime-source hashes. The focused
-state-machine shard passes 31 tests and the focused store shard passes 3 tests. Those green results
-do not close the architecture exits: Jest still emits three Redux unknown-`swapJournal` errors, and
-no default-collected test renders the real swap component. Installed dependencies still expose no
-direct React, ReactDOM, Testing Library or test renderer, so a rendered harness remains a separate
-compatibility-pinned dependency decision.
+| Commit | Accepted DEX boundary | Boundary that remains open |
+|---|---|---|
+| `bff04e2` | `configureStore` no longer treats a Promise-shaped full-snapshot writer as financial-journal authority. Production funding stays read-only even if `updateStorageAcknowledged` exists. | No authoritative host read/revision/CAS, operation receipt, or bound invocation exists. This is admission containment, not host storage. |
+| `8605427` | A journal fault latched by one `createModulePersistence` instance blocks every later queued full-snapshot write, including settings, so that instance cannot overwrite a possibly committed uncertain journal. | Other windows, renderer restart, truthful operation readback, and legacy-writer isolation remain host-owned and unproved. |
+| `73fbebc` | `submitNexus` rereads the three-field wallet/network scope after asynchronous funding validation and before intent mutation. A changed, unavailable, or rejected scope leaves the draft unchanged with zero wallet call. | A read is not a context-bound dispatch and cannot close the later race. |
+| `e6ac4fe` | `submitNexus` rereads scope after acknowledged `submission_unknown` persistence and before `submitDebit`; refusal retains the committed unknown state and cannot be retried automatically. | A switch between this read and host dispatch is still unbound. |
+| `7a28fcd` | `repairMapping` rereads scope after acknowledged `mappingStartedAt` persistence and before `publishMapping`; refusal retains manual-recovery state and immutable source/debit identities. | `publishMapping` performs asynchronous reads before `secureApiCall('assets/create/asset', ...)`; only a host-bound one-shot mutation can close that dispatch window. |
 
-Funding remains disabled by the empty accepted-deployment registry and absent authoritative host
-storage. Fresh retained probes still produce two mocked debit calls from one stale draft, erase a
-committed uncertain journal after lost acknowledgement plus a settings save, lose one of two
-independently created jobs, and submit one signer handoff twice across isolated browser namespaces.
-A fresh real-controller probe changes the active profile during asynchronous funding validation:
-the mocked debit is called once under the changed scope, then the existing post-call scope check
-rejects and leaves the original job `submission_unknown` without the returned identity. No live
-wallet, service, RPC, signer, or chain action was performed.
+The actual caller chain is `StablecoinSwap` → `createRuntime` → `createJobStore`/
+`createSwapController`. Settings call `configureStore` → `saveSettings`; Nexus funding calls
+`submitNexus` → runtime `validateFunding` → `nexus.submitDebit`; mapping recovery calls
+`repairMapping` → `nexus.publishMapping`. The new tests exercise real DEX coordinators, stores and
+controllers but mock host storage, wallet, RPC and chain boundaries. They establish local branch
+behavior only and do not implement or accept the independent wallet-host gate.
 
-Accepted progress is therefore design and evidence only: the maintained host contract now defines
-revision/CAS authority, durable operation receipts, uncertain-acknowledgement reconciliation,
-settings isolation, immutable first remote identity, and a separate context-bound one-shot wallet
-mutation with a two-context fault matrix. None of those host/runtime semantics is implemented in
-this repository or accepted in Nexus Interface.
+Fresh execution in the detached review tree reused a copied existing dependency tree without an
+install or upgrade. Seven Jest suites / 65 tests with coverage and all 110 reported Node tests pass.
+The focused storage/scope shard passes 27 Jest tests; focused CJS persistence/controller execution
+passes 24 tests. Strict swap lint passes; repository lint remains 0 errors / 21 warnings. Both
+production bundles build with three performance warnings. Jest still emits three Redux
+unknown-`swapJournal` diagnostics plus the expected no-session warning, and no default-collected
+test renders the real swap component. The CI-shaped inline manifest command was blocked by the
+execution security wrapper; the 12 declared files were present in the pre-run repository inventory,
+but that inventory is not represented as a fresh pass of the maintained manifest command.
 
-The refined [host contract](docs/HOST_STORAGE_CONTRACT.md) now distinguishes two requirements:
-host-owned revision/CAS storage with durable operation receipts, and a separate context-bound,
-durably claimed one-shot wallet mutation tied to the committed intent. The latter is a host/SDK
-capability, not a DEX-only scope recheck. Plain `secureApiCall(endpoint, params)` has no context or
-intent identity and cannot close a profile switch racing host dispatch.
+Funding remains fail-closed: `ACCEPTED_DEPLOYMENTS` is empty and production `configureStore` supplies
+no journal writer. The earlier duplicate-debit and journal-erasure paths are therefore not reachable
+through the current production admission path; their underlying multi-context requirements remain
+release blockers, not closed host controls. No live wallet, service, RPC, signer, node, chain, funds,
+deployment, or approval path was exercised.
+
+The [host contract](docs/HOST_STORAGE_CONTRACT.md) remains the normative upstream requirement:
+host-owned authoritative revisions/CAS and durable operation receipts, plus a separate
+context-bound, durably claimed one-shot mutation tied to the committed intent. NexusInterface and
+the module SDK own that capability. DEX owns fail-closed admission, consumption of the accepted API,
+local state transitions, Redux projection and exact caller tests. Plain
+`secureApiCall(endpoint, params)`, a Web Lock, or another module-side scope reread cannot substitute
+for host acceptance.
 
 ## Historical general review — 2026-09-21
 
@@ -199,12 +204,13 @@ independent of reputation UI.
 - `npm run build`: emits `dist/js/app.js` and `dist/js/solana-signer.js`.
 
 These are offline regression gates, not live-chain or target-wallet acceptance. They were rerun on
-2026-10-02 at `94d82a7` using the unchanged existing dependency tree: 41 Jest tests with coverage
-and all 110 reported Node subtests passed; strict swap lint passed with zero warnings; repository
-lint passed with 21 warnings; both bundles built with three performance warnings; all 12 manifest
-paths and 36 runtime hashes passed. No install, audit fix, or dependency upgrade ran. The Jest run
-again emitted three Redux unknown-root-key diagnostics, and the two component checks still read
-source/traverse the `Main.js` AST rather than render React or drive a DOM. Fresh exact-head remote CI
-was not queried in this documentation-only local review; prior exact-head CI evidence remains
-historical. None of this establishes target-wallet storage, rendering, host-bound mutation, or
-live-chain behavior.
+2026-10-07 at `7a28fcdd97710901e4317fb62d4ffc268b8743ca` using a copied existing dependency
+tree: 65 Jest tests with coverage and all 110 reported Node tests passed; the focused storage/scope
+Jest shard passed 27 and focused CJS controller/persistence execution passed 24. Strict swap lint
+passed with zero warnings; repository lint passed with 21 warnings; both bundles built with three
+performance warnings. No install, audit fix or dependency upgrade ran. The Jest run emitted three
+Redux unknown-root-key diagnostics and one expected no-session warning; the component check remains
+source/AST evidence rather than a rendered React workflow. The CI-shaped inline manifest command was
+blocked by the execution security wrapper, so the pre-run inventory of all 12 declared paths is not
+claimed as an executed manifest-gate pass. None of this establishes target-wallet storage,
+context-bound mutation, rendering, service acceptance or live-chain behavior.
