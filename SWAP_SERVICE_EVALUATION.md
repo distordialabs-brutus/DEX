@@ -23,6 +23,36 @@ historical evidence unless this review explicitly supersedes them. The DEX-speci
 swapService nor NexusInterface and therefore does not independently refresh their implementation status.
 Their acceptance remains an upstream prerequisite rather than a DEX claim.
 
+## 2026-10-07 maintainer increment — C-6 Redux projection only
+
+The scheduled maintenance candidate based on `9fe3e28` addresses the independently
+safe Redux-projection subissue in P1/D1 while P0/H1 remains an upstream prerequisite.
+`src/reducers/index.js` now merges only reducer-owned roots from storage and session
+initialization. The full host envelope still reaches persistence unchanged; settings
+saves preserve the journal and foreign storage keys. Recursive reducer defaults and
+session precedence are unchanged. Redux is not journal or financial authority.
+
+A default-collected real configure-store regression first failed on the extra
+`swapJournal`, `futureStorage` and `futureSession` roots. It now passes and requires
+no unexpected console error, exact roots, no initialization write, unchanged source
+envelopes, journal readback and complete-envelope preservation on settings save.
+Additional reducer regressions cover disk/session sources, invalid input and inherited
+roots. Fresh `npm ci` and candidate verification passed 26 focused Jest tests,
+7 suites / 73 full Jest tests with coverage, 110 reported swap tests, both lint gates,
+production build and all 12 regular manifest files. Redux unknown-root diagnostics
+are absent from this run; one expected no-session warning, 21 lint warnings, three
+bundle warnings, stale Browserslist data and 70 audit findings remain. No dependency
+versions changed. Local Node is 22.23.2; CI uses Node 20.
+
+This closes only the C-6 hydration-projection subissue, not H1/D1/D2 or C-1/C-2/C-7.
+It advances O4 for the explicit unvalidated non-Atlas wallet hypothesis. DEX owns
+the reducer/test boundary; human maintainers retain compatibility/release approval,
+users retain keys/consent and providers retain custody risk. Host CAS, durable
+operation/invocation receipts, namespace isolation, context-bound dispatch and
+supported-wallet/service/target acceptance remain required. Funding stays disabled,
+`ACCEPTED_DEPLOYMENTS` stays empty, and no real financial transport was used.
+The exact-head tables above/below remain evidence for the pre-increment snapshot.
+
 ## Verdict
 
 **The exact-head client remains an implemented, release-gated custodial bridge and is not approved for
@@ -238,9 +268,11 @@ cancel the non-draft job, and has no safe reopen control.
 - No default-collected React interaction suite mounts the bridge. Current “mounted component” test
   parses source/AST. The scratch DOM attempt could not resolve host-injected ReactDOM; no dependencies
   were installed to manufacture host acceptance. Add rendered tests and real-wallet acceptance.
-- Redux still warns about temporarily hydrating `swapJournal` into roots owned only by
-  `ui/settings/nexus`. The coordinator retains the journal in this fixture; the warning alone is not
-  data-loss proof. Correct the hydration projection after the higher-risk persistence protocol.
+- **2026-10-07 projection increment:** Redux initialization now admits only reducer-owned
+  `ui/settings/nexus` roots from both disk and session inputs. The full envelope and exact journal
+  still reach persistence, and foreign storage keys survive the tested settings save. The 73-test
+  candidate run emits no Redux unknown-root diagnostic. This closes only the hydration-projection
+  subissue; it does not provide authoritative persistence or close the host acceptance gates.
 - Service holds/refunds do not have an end-to-end DEX disposition-verification/recovery UI. In
   particular, oversized Nexus principal can require operator intervention. No local timeout should
   be labelled refunded without attributable evidence.

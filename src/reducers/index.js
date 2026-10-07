@@ -44,12 +44,21 @@ export default function createReducer() {
 
     if (action.type === INITIALIZE) {
       const { storageData, moduleState } = action.payload || {};
-      if (storageData || moduleState) {
-        return mergePersistedState(
-          mergePersistedState(newState, storageData),
-          moduleState
-        );
+      // Persistence owns the complete host envelope; Redux owns only these
+      // reducer roots. Project both disk and session data without altering either
+      // input, then retain the existing recursive merge and session precedence.
+      let restored = newState;
+      for (const persisted of [storageData, moduleState]) {
+        if (!isPlainObject(persisted)) continue;
+        const owned = {};
+        for (const key of Object.keys(newState)) {
+          if (Object.prototype.hasOwnProperty.call(persisted, key)) {
+            owned[key] = persisted[key];
+          }
+        }
+        restored = mergePersistedState(restored, owned);
       }
+      return restored;
     }
 
     return newState;

@@ -175,6 +175,41 @@ manifest files passed. Existing Redux diagnostics, 21 lint warnings, three bundl
 warnings, stale Browserslist data and 70 audit findings remain separate debt.
 Local Node is 22.23.2; CI uses Node 20. This is containment, not release acceptance.
 
+## 2026-10-07 narrow D1 Redux projection increment
+
+After the documented containment through `7a28fcd` and plan reconciliation at
+`9fe3e28`, P0/H1 remains upstream-blocked. This independently safe part of P1/D1
+changes only `src/reducers/index.js`: project both `storageData` and `moduleState`
+onto reducer-owned roots during `INITIALIZE`. Redux now receives exactly
+`ui/settings/nexus`, keeping recursive defaults and session-over-storage precedence.
+The unchanged configure-store middleware still hydrates persistence with the full
+host envelope. Journal inspection and native settings preservation remain intact;
+unknown storage keys survive settings saves and session data cannot replace the
+journal. This completes only the projection subissue (C-6), not D1 storage authority.
+
+**Traceability:** O4 recoverable wallet settlement; explicit unvalidated non-Atlas
+wallet/bridge hypothesis; DEX owns the root reducer and regression tests. The
+scheduled maintainer implements/verifies this local fix; repository human maintainers
+retain compatibility/release approval, users retain keys and consent, and providers
+retain custody risk. No dependency versions, wallet mutation paths, accepted
+deployments or release gates change. H1 authoritative CAS/operation receipts,
+settings namespace isolation and H2 context-bound one-shot invocation remain upstream
+prerequisites. No host API is invented or admitted by this projection change.
+
+**Collected evidence:** the new real configure-store integration regression failed
+before the fix because Redux exposed `swapJournal`, `futureStorage` and
+`futureSession`. Afterward it requires exact Redux roots, no unexpected console error,
+unchanged input envelopes, preserved defaults/precedence and exact journal/foreign
+storage keys after a settings save. Root reducer regressions independently cover
+both sources, invalid input and inherited-root exclusion. After `npm ci`, focused
+configure-store/reducer/persistence tests pass 26/26; full coverage passes 7/7 suites
+and 73/73 Jest tests; 110/110 reported swap tests, both lint gates, production build
+and all 12 regular manifest files pass. The full run no longer emits Redux
+unknown-root errors. Existing no-session warning, 21 repository lint warnings,
+three bundle warnings, stale Browserslist data and 70 audit findings remain separate
+debt. Local Node is 22.23.2; CI uses Node 20. Installed-wallet, multi-context host,
+rendered UI and service/target acceptance remain unproven; funding stays disabled.
+
 ## Current execution order — exact-head 2026-10-07
 
 The five repairs through `7a28fcd` are accepted as **local containment**. Do not assign them again as

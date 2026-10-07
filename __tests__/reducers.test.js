@@ -41,6 +41,40 @@ describe('mergePersistedState', () => {
 });
 
 describe('root reducer INITIALIZE', () => {
+  test.each(['storageData', 'moduleState'])('%s cannot add journal or foreign Redux roots', source => {
+    const reducer = createReducer();
+    const persisted = {
+      settings: { timeSpan: '1d' },
+      swapJournal: { version: 1, jobs: [{ id: 'held-job', state: 'submission_unknown' }] },
+      futureEnvelope: { version: 2 },
+    };
+    const restored = reducer(undefined, { type: INITIALIZE, payload: { [source]: persisted } });
+    expect(Object.keys(restored).sort()).toEqual(['nexus', 'settings', 'ui']);
+    expect(restored.settings.timeSpan).toBe('1d');
+    expect(restored.ui.nft.listings).toEqual([]);
+    expect(persisted.swapJournal.jobs[0].state).toBe('submission_unknown');
+  });
+
+  test.each([undefined, null, 'invalid', []])('invalid persisted roots (%p) retain reducer defaults', persisted => {
+    const reducer = createReducer();
+    const initial = reducer(undefined, { type: '@@INIT' });
+    const restored = reducer(initial, {
+      type: INITIALIZE,
+      payload: { storageData: persisted, moduleState: persisted },
+    });
+    expect(restored).toEqual(initial);
+  });
+
+  test('inherited persisted roots are not restored', () => {
+    const reducer = createReducer();
+    const initial = reducer(undefined, { type: '@@INIT' });
+    const inherited = Object.create({ settings: { timeSpan: 'inherited' } });
+    expect(reducer(initial, {
+      type: INITIALIZE,
+      payload: { storageData: inherited, moduleState: inherited },
+    })).toEqual(initial);
+  });
+
   test('restored session state never drops a newer reducer slice', () => {
     const reducer = createReducer();
     const initial = reducer(undefined, { type: '@@INIT' });

@@ -40,6 +40,53 @@ afterEach(() => {
   delete global.NEXUS;
 });
 
+test('initialization projects only Redux roots while preserving the complete host envelope', async () => {
+  const diagnostic = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const storageData = {
+    ui: { activeTab: 'Trade' },
+    settings: { timeSpan: '1d' },
+    nexus: { network: 'testnet' },
+    swapJournal: initialJournal,
+    futureStorage: { version: 2, evidence: ['retained'] },
+  };
+  const moduleState = {
+    ui: { activeTab: 'Charts' },
+    settings: { timeSpan: '1m' },
+    nexus: { genesis: 'profile-A' },
+    swapJournal: { version: 1, jobs: [] },
+    futureSession: { transient: true },
+  };
+  const originalStorage = JSON.stringify(storageData);
+  const originalSession = JSON.stringify(moduleState);
+  try {
+    const store = configureStore();
+    store.dispatch({ type: INITIALIZE, payload: { storageData, moduleState } });
+    const state = store.getState();
+    expect(Object.keys(state).sort()).toEqual(['nexus', 'settings', 'ui']);
+    expect(state.ui.activeTab).toBe('Charts');
+    expect(state.ui.nft.listings).toEqual([]);
+    expect(state.ui.market.myUnconfirmedOrders).toBeDefined();
+    expect(state.settings.timeSpan).toBe('1m');
+    expect(state.nexus).toEqual({ initialized: true, network: 'testnet', genesis: 'profile-A' });
+    expect(getPersistence().readJournal()).toEqual(initialJournal);
+    expect(() => getPersistence().healthy()).toThrow(/acknowledged/i);
+    expect(updateStorage).not.toHaveBeenCalled();
+
+    store.dispatch({ type: SWITCH_TAB, payload: 'Trade' });
+    store.dispatch({ type: SET_TIMESPAN, payload: '1w' });
+    await flush();
+    expect(updateStorage).toHaveBeenCalledTimes(1);
+    expect(updateStorage).toHaveBeenCalledWith({ ...storageData, settings: { timeSpan: '1w' } });
+    expect(Object.keys(store.getState()).sort()).toEqual(['nexus', 'settings', 'ui']);
+    expect(getPersistence().readJournal()).toEqual(initialJournal);
+    expect(JSON.stringify(storageData)).toBe(originalStorage);
+    expect(JSON.stringify(moduleState)).toBe(originalSession);
+    expect(diagnostic).not.toHaveBeenCalled();
+  } finally {
+    diagnostic.mockRestore();
+  }
+});
+
 test('session persistence preserves master memoization and excludes transient order state', () => {
   const store = initialize();
   const select = stateMiddleware.mock.calls[0][0];
