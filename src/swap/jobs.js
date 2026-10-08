@@ -21,7 +21,9 @@ const IMMUTABLE_FIELDS = Object.freeze([
   'id', 'reference', 'scope', 'direction', 'provider', 'quote', 'nexusAccount', 'solanaAccount',
   'nexusMinConfirmations', 'expiresAt',
 ]);
-const SECRET_KEY = /(?:private.?key|secret|seed|mnemonic|passphrase|password|credential|auth.?token)/i;
+// Reject named wallet credentials recursively without treating protocol fields
+// such as mappingAddress or session-independent scope identities as secrets.
+const SECRET_KEY = /(?:private.?key|secret|seed|mnemonic|passphrase|password|credential|auth.?token|^pin(?:.?code)?$|^sessions?$|session.?(?:token|key))/i;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));

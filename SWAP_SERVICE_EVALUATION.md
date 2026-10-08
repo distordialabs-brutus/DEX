@@ -91,6 +91,47 @@ Installed-wallet, host multi-context, service/target and human acceptance remain
 unproven; production funding stays disabled. Earlier exact-head tables remain
 evidence for their stated snapshots.
 
+## 2026-10-08 maintainer increment — D1 named wallet-credential rejection
+
+Based on published `e5740e90302ea0ec97a07b6d185f4bf2e19af799`, P0/H1 is still
+host-owned and unavailable in the installed SDK. This independently safe P1/D1
+input-validation increment enforces the frozen-job prohibition on PINs and wallet
+sessions. The existing recursive secret-field validator in `src/swap/jobs.js`
+rejected private keys/passwords but accepted `pin`, PIN-code aliases, `session`,
+`sessions`, and session token/key fields. It now rejects these named credentials
+before job creation/update can reach persistence, including nested arrays/objects.
+Errors name the field path, not its value. This is a field-name guard, not a claim
+that arbitrary opaque values can be identified as secrets.
+
+Default-collected `__tests__/persistence.test.js` uses real persistence/job stores
+and only a mocked host writer with synthetic credentials. Eight regressions first
+failed because creation succeeded. They now require zero writes for rejected
+creation/update, unchanged committed jobs, blocked reads/repeated creation for
+legacy invalid journals, exact settings/envelope preservation and blocked restart.
+Non-secret mapping, pinning-policy and session-observation fields still round-trip.
+Existing invalid records are deliberately not automatically scrubbed or migrated;
+explicit host-owned recovery is required, and this guard does not certify their
+inspection/export as safe for disclosure.
+
+**Traceability:** O4 bounded, recoverable wallet settlement; explicit unvalidated
+non-Atlas wallet/bridge hypothesis. DEX owns this validator and its regressions;
+the scheduled maintainer implements/verifies the local candidate. Repository human
+maintainers retain compatibility/release authority, users retain keys and consent,
+and providers retain custody risk. No dependency versions, wallet dispatch paths,
+accepted deployments or live financial transport change. Authoritative host CAS,
+operation/invocation receipts, legacy-writer isolation, supported-wallet and
+service/target acceptance remain prerequisites. This closes only the named
+credential-validation gap, not full D1/H1/H2 acceptance; funding stays disabled.
+
+**Collected evidence:** fresh `npm ci`; 24/24 focused persistence tests; 7 suites /
+91 full Jest tests with coverage; 110/110 swap tests; repository lint (0 errors /
+21 existing warnings); strict swap lint; production build and all 12 regular
+manifest files pass. An initial test-formatting lint error was repaired before the
+final gates. Existing no-session/Browserslist warnings, three bundle warnings and
+70 dependency audit findings remain separate debt. Local Node is 22.23.2; CI uses
+Node 20. Pre-existing native-UI/strategy documentation edits are excluded from this
+candidate. Earlier exact-head tables remain evidence for their stated snapshots.
+
 ## Verdict
 
 **The exact-head client remains an implemented, release-gated custodial bridge and is not approved for

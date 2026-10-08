@@ -55,6 +55,70 @@ test.each([
 });
 
 test.each([
+  'pin', 'PIN', 'pinCode', 'pin_code', 'session', 'sessions', 'sessionToken', 'session_key',
+])('job credentials in %s are rejected before persistence and remain blocked on restart', async key => {
+  // Synthetic values only; the wallet remains the real credential boundary.
+  const invalidJob = { ...clone(draft), recovery: { [key]: 'synthetic-credential' } };
+  let disk = clone(initial);
+  const writer = jest.fn(async value => { disk = clone(value); return true; });
+  const persistence = createModulePersistence(writer);
+  persistence.hydrate(initial);
+  const store = createJobStore({ persistence, locks });
+
+  await expect(store.create(invalidJob)).rejects.toThrow(/secret field/i);
+  expect(writer).not.toHaveBeenCalled();
+  expect(disk).toEqual(initial);
+  expect(store.list(scope)).toEqual([]);
+
+  await store.create(draft);
+  const committed = clone(disk);
+  writer.mockClear();
+  await expect(store.update(draft.id, current => ({
+    ...current, recovery: [{ [key]: 'synthetic-credential' }],
+  }))).rejects.toThrow(/secret field/i);
+  expect(writer).not.toHaveBeenCalled();
+  expect(disk).toEqual(committed);
+  expect(store.get(draft.id)).toEqual(draft);
+
+  // Legacy invalid records must not be silently discarded or overwritten with a
+  // new job. Settings retain the envelope for explicit host-owned recovery.
+  const envelope = { ...clone(initial), swapJournal: { version: 1, jobs: [invalidJob] } };
+  const original = clone(envelope);
+  disk = clone(envelope);
+  const restored = createModulePersistence(writer);
+  restored.hydrate(envelope);
+  const restoredStore = createJobStore({ persistence: restored, locks });
+  expect(() => restoredStore.list(scope)).toThrow(/secret field/i);
+  expect(() => restoredStore.get(draft.id)).toThrow(/secret field/i);
+  await expect(restoredStore.create(draft)).rejects.toThrow(/secret field/i);
+  await expect(restoredStore.create(draft)).rejects.toThrow(/secret field/i);
+  expect(writer).not.toHaveBeenCalled();
+  await restored.saveSettings({ timeSpan: '1w' });
+  expect(disk).toEqual({ ...original, settings: { timeSpan: '1w' } });
+  expect(envelope).toEqual(original);
+  const restarted = createModulePersistence(undefined);
+  restarted.hydrate(disk);
+  expect(() => createJobStore({ persistence: restarted, locks }).list(scope)).toThrow(/secret field/i);
+});
+
+test('non-secret protocol and inspection fields are still preserved', async () => {
+  const validJob = {
+    ...clone(draft), mappingAddress: 'mapping-address',
+    inspection: { pinningPolicy: 'exact-identity', sessionObservedAt: 1900000000000 },
+  };
+  let disk = clone(initial);
+  const writer = jest.fn(async value => { disk = clone(value); return true; });
+  const persistence = createModulePersistence(writer);
+  persistence.hydrate(initial);
+  const store = createJobStore({ persistence, locks });
+  await expect(store.create(validJob)).resolves.toEqual(validJob);
+  expect(disk).toEqual({ ...initial, swapJournal: { version: 1, jobs: [validJob] } });
+  const restarted = createModulePersistence(undefined);
+  restarted.hydrate(disk);
+  expect(createJobStore({ persistence: restarted, locks }).get(validJob.id)).toEqual(validJob);
+});
+
+test.each([
   ['absent journal', { settings: { timeSpan: '1d' }, future: { version: 2 } }],
   ['valid empty journal', initial],
 ])('%s permits a first job without losing settings or foreign fields', async (name, envelope) => {
