@@ -43,7 +43,11 @@ function createModulePersistence(write, {writeSettings = write} = {}) {
     },
     readJournal() {
       healthy(false);
-      return clone(data.swapJournal || {version: 1, jobs: []});
+      // Only an absent journal means a fresh installation. Preserve malformed
+      // persisted values so job-store validation blocks instead of hiding history.
+      return clone(Object.prototype.hasOwnProperty.call(data, 'swapJournal')
+        ? data.swapJournal
+        : {version: 1, jobs: []});
     },
     writeJournal(journal) { return enqueue(current => ({...current, swapJournal: clone(journal)})); },
     saveSettings(settings) { return enqueue(current => ({...current, settings: clone(settings)}), false); },

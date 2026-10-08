@@ -53,6 +53,44 @@ supported-wallet/service/target acceptance remain required. Funding stays disabl
 `ACCEPTED_DEPLOYMENTS` stays empty, and no real financial transport was used.
 The exact-head tables above/below remain evidence for the pre-increment snapshot.
 
+## 2026-10-08 maintainer increment — D1 malformed-journal preservation
+
+Based on published `3651b7dc7d822ab609bc98e9b493e08000b57cd9`, the next
+independently safe P1/D1 subissue is malformed journal input. P0/H1 remains
+upstream-blocked: the installed SDK still exports only the legacy storage writer,
+not the required versioned CAS/operation or bound-invocation API. The already
+completed admission, fault/scope containment and Redux projection are not repeated.
+
+`src/swap/persistence.js` now defaults to an empty journal only when the property
+is absent. Previously persisted `null`, `false`, `0` and `''` were silently
+presented as empty history, bypassing job-store validation and permitting a new
+job to replace that history in explicitly writable fixtures. Existing malformed
+values now reach the real job-store validator and produce its funding-blocked
+error. Settings saves preserve those exact values and foreign envelope fields;
+restart does not reset them. No automatic repair or recovery authority is added.
+
+**Traceability:** O4 recoverable, independently inspectable wallet settlement;
+explicit unvalidated non-Atlas wallet/bridge hypothesis. DEX owns the persistence
+read boundary and tests; the scheduled maintainer implements/verifies the candidate.
+Repository human maintainers retain compatibility/release approval, users retain
+keys and consent, and providers retain custody risk. H1 authoritative CAS/receipts,
+legacy-writer isolation and H2 context-bound invocation remain upstream prerequisites.
+This closes only the falsy-journal masking subissue, not D1/H1/C-1/C-2/C-7.
+
+**Collected evidence:** four default-collected regressions failed before the fix
+because job listing did not throw. Real persistence/job-store tests now cover
+seven invalid values, blocked repeated creation, unchanged input/storage, exact
+settings preservation and restart; absent and valid-empty journal controls still
+permit a first job through a mocked host writer. After fresh `npm ci`, focused
+persistence tests pass 15/15; full coverage passes 7 suites / 82 tests; swap tests
+pass 110/110. Both lint gates, production build and all 12 regular manifest files
+pass. Existing no-session/Browserslist warnings, 21 lint warnings, three bundle
+warnings and 70 audit findings remain unrelated debt. Local Node is 22.23.2; CI
+uses Node 20. No dependency versions, live transport or accepted deployments change.
+Installed-wallet, host multi-context, service/target and human acceptance remain
+unproven; production funding stays disabled. Earlier exact-head tables remain
+evidence for their stated snapshots.
+
 ## Verdict
 
 **The exact-head client remains an implemented, release-gated custodial bridge and is not approved for

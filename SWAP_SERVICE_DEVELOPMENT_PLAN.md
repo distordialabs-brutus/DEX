@@ -210,6 +210,21 @@ three bundle warnings, stale Browserslist data and 70 audit findings remain sepa
 debt. Local Node is 22.23.2; CI uses Node 20. Installed-wallet, multi-context host,
 rendered UI and service/target acceptance remain unproven; funding stays disabled.
 
+## 2026-10-08 narrow D1 malformed-journal increment
+
+The independently safe malformed-input subissue is addressed in
+`src/swap/persistence.js`: only an absent journal defaults to empty history;
+persisted falsy or otherwise malformed values remain intact for job-store
+validation. Real default-collected persistence/job-store regressions cover blocked
+reads/repeated creation, settings/envelope preservation and restart, with absent
+and valid-empty controls. Four regressions failed before the fix. Fresh install,
+15 focused tests, 82 full Jest tests with coverage, 110 swap tests, both lint gates,
+production build and 12 manifest files pass. See the
+[maintained evaluation](SWAP_SERVICE_EVALUATION.md#2026-10-08-maintainer-increment--d1-malformed-journal-preservation)
+for O4/non-Atlas ownership, exact scope and external/human boundaries. This is not
+host storage authority: P0/H1 and full D1/D2 acceptance remain upstream-blocked;
+funding stays disabled and no dependency or deployment acceptance changes.
+
 ## Current execution order — exact-head 2026-10-07
 
 The five repairs through `7a28fcd` are accepted as **local containment**. Do not assign them again as
